@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard Fiscal SaaS</title>
+  <link rel="stylesheet" href="/css/fiscal-ui.css">
+</head>
+<body class="fiscal-ui">
+  <div class="dash-shell">
+    <header class="dash-header">
+      <div class="dash-title-wrap">
+        <h1>Dashboard Fiscal</h1>
+        <p>Monitoreo multi-tenant · SUNAT · PSE</p>
+      </div>
+      <div class="dash-user">
+        <span>Sesión: <strong>__USERNAME__</strong></span>
+        <a href="/change-password">Cambiar contraseña</a>
+        <a href="/logout">Salir</a>
+      </div>
+    </header>
+
+    <div class="dash-card dash-filters">
+      <input id="tenant_slug" placeholder="Tenant slug">
+      <input id="from" type="date"><input id="to" type="date">
+      <select id="status"><option value="">Estado</option><option>queued</option><option>accepted</option><option>error</option><option>retrying</option></select>
+      <select id="document_type"><option value="">Tipo</option><option>01</option><option>03</option><option>07</option><option>09</option><option>RC</option><option>RA</option></select>
+      <select id="send_mode"><option value="">Modo</option><option>sunat_direct</option><option>pse</option></select>
+      <input id="provider" placeholder="Provider"><input id="series" placeholder="Serie" style="width:5rem"><input id="number" placeholder="Núm" style="width:5rem">
+      <label><input type="checkbox" id="errors_only"> Solo errores</label>
+      <button class="btn btn-indigo" id="btnLoad">Filtrar</button>
+      <button class="btn btn-slate" id="btnRefresh">Actualizar</button>
+    </div>
+
+    <div class="kpi-grid" id="kpis"></div>
+
+    <div class="dash-layout">
+      <div class="dash-card">
+        <table class="dash-table">
+          <thead><tr><th>Tenant</th><th>Documento</th><th>Estado</th><th>Modo</th><th>Prov.</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <p class="pager" id="pager"></p>
+      </div>
+      <div class="dash-card dash-detail">
+        <h2>Detalle</h2>
+        <p id="selHint" class="hint-muted">Seleccione una fila de la tabla</p>
+        <div id="detailBox" style="display:none">
+          <div id="badges"></div>
+          <div class="actions">
+            <button class="btn btn-indigo" id="btnResend">Reenviar</button>
+            <button class="btn btn-amber" id="btnRetry">Reintentar</button>
+            <button class="btn btn-violet" id="btnForce">Forzar</button>
+            <button class="btn btn-teal" id="btnEmail">Email</button>
+            <button class="btn btn-sky" id="btnPoll">Poll</button>
+          </div>
+          <div class="actions">
+            <button class="btn btn-slate" data-dl="pdf">Descargar PDF</button>
+            <button class="btn btn-emerald" id="btnViewPdf" type="button">Ver PDF</button>
+            <button class="btn btn-teal" id="btnGenPdf" type="button" style="display:none">Generar PDF</button>
+            <button class="btn btn-slate" data-dl="signed_xml">XML</button>
+            <button class="btn btn-slate" data-dl="cdr">CDR</button>
+            <button class="btn btn-slate" data-dl="unsigned_xml">Unsigned</button>
+          </div>
+          <p id="pdfHint" class="hint-muted" style="display:none"></p>
+          <div id="pdfPreviewWrap" class="pdf-preview-wrap" style="display:none">
+            <h3>Vista previa PDF (wkhtmltopdf)</h3>
+            <iframe id="pdfPreview" class="pdf-preview" title="Vista previa comprobante PDF"></iframe>
+          </div>
+          <h3>Timeline</h3><div class="timeline" id="timeline"></div>
+          <h3>Attempts</h3><pre id="attempts"></pre>
+          <h3>Email</h3><pre id="emails"></pre>
+          <h3>Webhooks</h3><pre id="webhooks"></pre>
+          <h3>JSON</h3><pre id="jsonDetail"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const API='__API_BASE__'; let selectedUuid=null;
+    const fetchOpts={credentials:'same-origin'};
+    const qs=id=>document.getElementById(id);
+    const url=(p,params)=>{const u=new URL(API+p,location.origin); Object.entries(params||{}).forEach(([k,v])=>{if(v!==''&&v!=null&&v!==false)u.searchParams.set(k,v)}); return u};
+    async function apiFetch(u,opts){const r=await fetch(u,Object.assign({},fetchOpts,opts||{})); if(r.status===401||r.status===403){location.href='/login'; throw new Error('Sesion expirada');} return r;}
+    function badgeClass(st){if(!st)return'';st=String(st).toLowerCase();if(st.includes('accept')||st==='sent')return' badge-ok';if(st.includes('error')||st.includes('reject')||st.includes('fail'))return' badge-err';if(st.includes('retry')||st.includes('queue')||st.includes('pend'))return' badge-warn';return'';}
+    async function loadStats(){
+      const s=await apiFetch(url('/stats',{tenant_slug:qs('tenant_slug').value})).then(r=>r.json());
+      const items=[['Total',s.total,'indigo'],['Pendientes',s.pending,'amber'],['Cola',s.in_queue,'sky'],['Procesando',s.processing,'violet'],['Aceptados',s.accepted,'emerald'],['Errores',s.errors,'rose'],['Retries',s.retries,'amber'],['Emails',s.emails_pending,'teal']];
+      qs('kpis').innerHTML=items.map(([l,n,c])=>'<div class="kpi kpi-'+c+'"><div class="kpi-val">'+(n??0)+'</div><div class="kpi-lbl">'+l+'</div></div>').join('');
+    }
+    async function loadList(){
+      const p={tenant_slug:qs('tenant_slug').value,status:qs('status').value,document_type:qs('document_type').value,send_mode:qs('send_mode').value,provider:qs('provider').value,series:qs('series').value,number:qs('number').value,from:qs('from').value,to:qs('to').value,errors_only:qs('errors_only').checked,limit:100};
+      const data=await apiFetch(url('/documents',p)).then(r=>r.json());
+      qs('rows').innerHTML=(data.items||[]).map(d=>'<tr data-u="'+d.document_uuid+'"><td>'+d.tenant_slug+'</td><td>'+d.document_type+' '+d.series+'-'+d.number+'</td><td><span class="badge'+badgeClass(d.status)+'">'+d.status+'</span></td><td>'+(d.send_mode||'')+'</td><td>'+(d.provider||'')+'</td></tr>').join('');
+      qs('pager').textContent='Total: '+(data.total||0);
+      document.querySelectorAll('#rows tr').forEach(tr=>tr.onclick=()=>{document.querySelectorAll('#rows tr').forEach(r=>r.classList.remove('selected'));tr.classList.add('selected');detail(tr.dataset.u);});
+    }
+    async function detail(uuid){
+      selectedUuid=uuid;
+      const d=await apiFetch(url('/documents/'+uuid)).then(r=>r.json());
+      qs('selHint').style.display='none'; qs('detailBox').style.display='block';
+      const doc=d.document||{};
+      const pdfBadge=doc.pdf_available?'<span class="badge badge-ok">PDF listo</span>':(doc.pdf_can_generate?'<span class="badge badge-warn">PDF generable</span>':'<span class="badge">Sin PDF</span>');
+      qs('badges').innerHTML='<span class="badge'+badgeClass(doc.status)+'">'+doc.status+'</span> <span class="badge">'+ (doc.send_mode||'—')+'</span> <span class="badge">'+ (doc.provider||'—')+'</span> '+pdfBadge;
+      qs('timeline').innerHTML=(d.timeline||[]).map(ev=>'<div><strong>'+ev.type+'</strong> '+ev.at+'<br><small>'+JSON.stringify(ev)+'</small></div>').join('');
+      qs('attempts').textContent=JSON.stringify(d.attempts||[],null,2);
+      qs('emails').textContent=JSON.stringify(d.email_logs||[],null,2);
+      qs('webhooks').textContent=JSON.stringify(d.webhook_events||[],null,2);
+      qs('jsonDetail').textContent=JSON.stringify(d,null,2);
+      const canPdf=!!doc.pdf_can_generate;
+      const hasPdf=!!doc.pdf_available;
+      qs('btnViewPdf').style.display=canPdf?'inline-flex':'none';
+      qs('btnGenPdf').style.display=(canPdf && !hasPdf)?'inline-flex':'none';
+      qs('pdfPreviewWrap').style.display='none';
+      qs('pdfPreview').src='about:blank';
+      const hint=qs('pdfHint');
+      if(!canPdf){
+        hint.style.display='block';
+        hint.textContent='PDF no disponible: el documento necesita XML firmado almacenado (SUNAT directo o PSE con respuesta xml).';
+      } else if(!hasPdf){
+        hint.style.display='block';
+        hint.textContent='PDF aún no generado. Use «Generar PDF» o «Ver PDF» (wkhtmltopdf en el servidor).';
+      } else {
+        hint.style.display='none';
+        hint.textContent='';
+      }
+    }
+    function showPdfInline(){
+      if(!selectedUuid)return;
+      qs('pdfPreviewWrap').style.display='block';
+      qs('pdfPreview').src=url('/documents/'+selectedUuid+'/download/pdf',{view:'inline'});
+    }
+    async function generatePdf(){
+      if(!selectedUuid)return;
+      qs('btnGenPdf').disabled=true;
+      try{
+        const r=await apiFetch(url('/documents/'+selectedUuid+'/generate-pdf'),{method:'POST'});
+        const body=await r.json();
+        if(!r.ok) throw new Error(body.error||'Error al generar PDF');
+        await detail(selectedUuid);
+        showPdfInline();
+      }catch(e){
+        alert(e.message||'Error al generar PDF');
+      }finally{
+        qs('btnGenPdf').disabled=false;
+      }
+    }
+    async function action(path){if(!selectedUuid)return; await apiFetch(url('/documents/'+selectedUuid+path),{method:'POST'}); await detail(selectedUuid); await loadStats(); await loadList();}
+    document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>{if(selectedUuid)window.open(url('/documents/'+selectedUuid+'/download/'+b.dataset.dl),'_blank');});
+    qs('btnViewPdf').onclick=showPdfInline;
+    qs('btnGenPdf').onclick=generatePdf;
+    qs('btnLoad').onclick=()=>{loadStats();loadList();};
+    qs('btnRefresh').onclick=()=>{loadStats();loadList(); if(selectedUuid)detail(selectedUuid);};
+    ['btnResend','/send','btnRetry','/retry','btnForce','/force','btnEmail','/email','btnPoll','/poll'].reduce((_,v,i,a)=>{if(i%2===0)qs(v).onclick=()=>action(a[i+1]);});
+    loadStats(); loadList(); setInterval(()=>{if(!document.hidden){loadStats();loadList();}},30000);
+  </script>
+</body>
+</html>

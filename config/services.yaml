@@ -1,0 +1,237 @@
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices/configuration.html#application-related-configuration
+parameters:
+    locale: 'es'
+    container.dumper.inline_factories: true
+    container.dumper.inline_class_loader: true
+    token: '%env(CLIENT_TOKEN)%'
+    data_path: '%kernel.project_dir%/data'
+    fiscal.storage_path: '%kernel.project_dir%/var/fiscal_storage'
+    fiscal.storage_public_url: 'http://localhost:8000/fiscal-files'
+    env(validapse_url): 'https://app.validapse.com'
+    env(mail_from): 'noreply@tukifac.com'
+    env(fiscal_storage_driver): 'local'
+    env(fiscal_mail_from_name): 'Tukifac'
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+            - '../src/Tests/'
+
+    # controllers are imported separately to make sure services can be injected
+    # as action arguments even if you don't extend any base controller class
+    App\Controller\:
+        resource: '../src/Controller/'
+        tags: ['controller.service_arguments']
+        shared: false
+
+    App\Controller\v1\InvoiceController:
+        arguments:
+            - '@App\Service\DocumentRequestInterface'
+            - '@App\Service\EnvConfigProvider'
+            - '@App\Service\ConfigProviderInterface'
+            - '@JMS\Serializer\SerializerInterface'
+        shared: false
+
+    Psr\Container\ContainerInterface:
+        alias: service_container
+
+    Greenter\Report\Resolver\DefaultTemplateResolver:
+        autowire: true
+
+    Greenter\Report\Resolver\TemplateResolverInterface:
+        alias: Greenter\Report\Resolver\DefaultTemplateResolver
+        public: true
+
+    Greenter\Report\Render\QrRender:
+        autowire: true
+
+    Greenter\Report\XmlUtils:
+        public: true
+
+    Greenter\Report\HtmlReport:
+        arguments:
+            - '%env(default::TEMPLATESPDF_PATH)%'
+            - cache: '%kernel.cache_dir%'
+              strict_variables: true
+
+    Greenter\Report\PdfReport:
+        arguments: ['@App\Service\HtmlReportDecorator']
+        calls:
+            - [setBinPath, ['%env(WKHTMLTOPDF_PATH)%']]
+            - [setOptions, [['no-outline', 'print-media-type']]]
+
+    App\Service\PdfReportDecorator:
+        public: true
+        arguments:
+            - '@App\Service\HtmlReportDecorator'
+            - '%env(WKHTMLTOPDF_PATH)%'
+            - ['no-outline', 'print-media-type']
+            - '%kernel.project_dir%'
+
+    App\Service\AppDocumentValidator:
+        autowire: true
+
+    App\Service\DocumentRequest:
+        autowire: true
+
+    Greenter\Validator\DocumentValidatorInterface: '@App\Service\AppDocumentValidator'
+    Greenter\Report\ReportInterface:
+        alias: App\Service\PdfReportDecorator
+        public: true
+
+    App\Service\DocumentRequestInterface: '@App\Service\DocumentRequest'
+
+    serializer:
+        alias: App\Adapter\SerializerAdapter
+        public: true
+
+    Greenter\See:
+        public: true
+        calls:
+            - [setCachePath, ['%kernel.cache_dir%']]
+
+    Greenter\Api:
+        public: true
+        arguments:
+            - auth: '%env(AUTH_URL)%'
+              cpe: '%env(API_URL)%'
+        calls:
+            - [setBuilderOptions, [cache: '%kernel.cache_dir%']]
+
+    App\Service\FileConfigProvider:
+        arguments:
+            - '%data_path%'
+            - '@App\Repository\EmpresaRepository'
+
+    App\Service\FileDataReader:
+        public: true
+        arguments: ['%data_path%']
+
+    App\Service\EmpresasService:
+        arguments:
+            - '@App\Repository\EmpresaRepository'
+            - '@Doctrine\ORM\EntityManagerInterface'
+            - '%data_path%'
+
+    App\Service\ConfigProviderInterface:
+        alias: App\Service\FileConfigProvider
+        public: true
+
+    App\Service\EnvConfigProvider:
+
+    App\Service\SeeFactory:
+        public: true
+        arguments:
+            - '@App\Service\EnvConfigProvider'
+            - '@App\Service\ConfigProviderInterface'
+            - '@App\Service\FileDataReader'
+            - '@Greenter\See'
+
+    App\Service\SeeApiFactory:
+        public: true
+        arguments:
+            - '@App\Service\EnvConfigProvider'
+            - '@App\Service\ConfigProviderInterface'
+            - '@App\Service\FileDataReader'
+            - '@Greenter\Api'
+
+    App\EventSubscriber\TokenSubscriber:
+        arguments:
+            $token: '%token%'
+
+    App\Command\ImportEmpresasFromJsonCommand:
+        arguments:
+            $dataPath: '%data_path%'
+
+    App\Service\Fiscal\FiscalWebhookService:
+        arguments:
+            $erpWebhookUrl: '%env(default::ERP_WEBHOOK_URL)%'
+            $erpWebhookKey: '%env(default::ERP_WEBHOOK_KEY)%'
+
+    App\Service\Fiscal\FiscalStorageService:
+        arguments:
+            $driver: '@App\Service\Fiscal\Storage\StorageDriverInterface'
+
+    App\Service\Fiscal\Storage\StorageDriverInterface:
+        factory: ['@App\Service\Fiscal\Storage\StorageDriverFactory', 'create']
+
+    App\Service\Fiscal\Storage\StorageDriverFactory:
+        arguments:
+            $driver: '%env(default::FISCAL_STORAGE_DRIVER)%'
+            $localBasePath: '%fiscal.storage_path%'
+            $localPublicUrl: '%fiscal.storage_public_url%'
+            $s3Region: '%env(default::FISCAL_S3_REGION)%'
+            $s3Endpoint: '%env(default::FISCAL_S3_ENDPOINT)%'
+            $s3Bucket: '%env(default::FISCAL_S3_BUCKET)%'
+            $s3AccessKey: '%env(default::FISCAL_S3_ACCESS_KEY)%'
+            $s3SecretKey: '%env(default::FISCAL_S3_SECRET_KEY)%'
+            $s3PublicUrl: '%env(default::FISCAL_S3_PUBLIC_URL)%'
+            $s3KeyPrefix: '%env(default::FISCAL_S3_KEY_PREFIX)%'
+
+    App\Service\Fiscal\Storage\LocalStorageDriver:
+        arguments:
+            $basePath: '%fiscal.storage_path%'
+            $publicBaseUrl: '%fiscal.storage_public_url%'
+
+    App\Service\Fiscal\Provider\SunatDirectProvider:
+        arguments:
+            $dataPath: '%data_path%'
+
+    App\Service\Fiscal\Provider\ValidaPseProvider: ~
+
+    App\Service\Fiscal\Provider\PseAuthBuilder: ~
+
+    App\Service\Fiscal\Provider\FiscalProviderResolver:
+        arguments:
+            $providers:
+                - '@App\Service\Fiscal\Provider\ValidaPseProvider'
+                - '@App\Service\Fiscal\Provider\SunatDirectProvider'
+
+    App\Controller\FiscalFilesController:
+        arguments:
+            $storagePath: '%fiscal.storage_path%'
+
+    App\Service\Fiscal\FiscalDocumentPdfResolver:
+        arguments:
+            $localStoragePath: '%fiscal.storage_path%'
+
+    App\Service\Fiscal\FiscalQueueService:
+        arguments:
+            $redisUrl: '%env(default::REDIS_URL)%'
+        calls:
+            - [setJobDispatcher, ['@App\Service\Fiscal\FiscalJobDispatcher']]
+
+    App\Service\Fiscal\FiscalJobDispatcher: ~
+
+    App\Service\Fiscal\FiscalEmailProcessor:
+        arguments:
+            $mailFrom: '%env(default::FISCAL_MAIL_FROM)%'
+
+    App\Service\Fiscal\FiscalMailerService:
+        arguments:
+            $fromAddress: '%env(default::FISCAL_MAIL_FROM)%'
+            $fromName: '%env(default::FISCAL_MAIL_FROM_NAME)%'
+
+    App\Service\Fiscal\FiscalFileFetcher:
+        arguments:
+            $localStoragePath: '%fiscal.storage_path%'
+
+    App\Service\Fiscal\FiscalDocumentDetailService: ~
+
+    # add more service definitions here when explicit configuration is needed
+    # please note that last definitions always *replace* previous definitions
