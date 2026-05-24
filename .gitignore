@@ -1,7 +1,9 @@
 /.idea/
 .php_cs.cache
-/data
+
+/data/*
 !/data/.htaccess
+!/data/.gitkeep
 
 ###> symfony/framework-bundle ###
 /.env.local
@@ -9,7 +11,13 @@
 /.env.*.local
 /config/secrets/prod/prod.decrypt.private.php
 /public/bundles/
-/var/
+
+/var/*
+!/var/cache/
+!/var/log/
+!/var/cache/.gitkeep
+!/var/log/.gitkeep
+
 /vendor/
 ###< symfony/framework-bundle ###
 

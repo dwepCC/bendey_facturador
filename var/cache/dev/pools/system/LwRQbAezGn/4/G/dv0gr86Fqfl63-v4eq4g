@@ -1,0 +1,3 @@
+<?php //App%255CEntity%255CFiscalDocument%2523setTenantId
+
+return [PHP_INT_MAX, []];
