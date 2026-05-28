@@ -9,9 +9,10 @@
         "ext-iconv": "*",
         "ext-json": "*",
         "aws/aws-sdk-php": "^2.8",
-        "doctrine/doctrine-bundle": "^2.13",
-        "doctrine/doctrine-migrations-bundle": "^3.7",
-        "doctrine/orm": "^2.20",
+        "doctrine/doctrine-bundle": "^2.7",
+        "doctrine/doctrine-migrations-bundle": "^3.2",
+        "doctrine/orm": "^2.14",
+        "doctrine/annotations": "^1.14",
         "greenter/htmltopdf": "^5.0",
         "greenter/lite": "^5.2",
         "greenter/report": "^5.0",
@@ -36,6 +37,9 @@
     "prefer-stable": true,
     "minimum-stability": "dev",
     "config": {
+        "platform": {
+            "php": "8.2.30"
+        },
         "preferred-install": {
             "*": "dist"
         },
