@@ -1,0 +1,3 @@
+<?php //App%255CEntity%255COutboundEmailLog%2523setErrorMessage
+
+return [PHP_INT_MAX, []];
