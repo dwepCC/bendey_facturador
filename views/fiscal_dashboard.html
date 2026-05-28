@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -11,7 +11,7 @@
     <header class="dash-header">
       <div class="dash-title-wrap">
         <h1>Dashboard Fiscal</h1>
-        <p>Monitoreo multi-tenant · SUNAT · PSE</p>
+        <p>Monitoreo de comprobantes SUNAT por tenant</p>
       </div>
       <div class="dash-user">
         <span>Sesión: <strong>__USERNAME__</strong></span>
@@ -21,12 +21,31 @@
     </header>
 
     <div class="dash-card dash-filters">
-      <input id="tenant_slug" placeholder="Tenant slug">
-      <input id="from" type="date"><input id="to" type="date">
-      <select id="status"><option value="">Estado</option><option>queued</option><option>accepted</option><option>error</option><option>retrying</option></select>
-      <select id="document_type"><option value="">Tipo</option><option>01</option><option>03</option><option>07</option><option>09</option><option>RC</option><option>RA</option></select>
+      <input id="company_ruc" placeholder="RUC del tenant (11 dígitos)">
+      <input id="from" type="date" title="Desde">
+      <input id="to" type="date" title="Hasta">
+      <select id="status">
+        <option value="">Estado</option>
+        <option value="queued">En cola</option>
+        <option value="accepted">Aceptado</option>
+        <option value="error">Error</option>
+        <option value="retrying">Reintentando</option>
+        <option value="rejected">Rechazado</option>
+        <option value="pending">Pendiente</option>
+        <option value="sending">Enviando</option>
+      </select>
+      <select id="document_type">
+        <option value="">Tipo de documento</option>
+        <option value="01">Factura (01)</option>
+        <option value="03">Boleta (03)</option>
+        <option value="07">Nota de crédito (07)</option>
+        <option value="08">Nota de débito (08)</option>
+        <option value="09">Guía de remisión (09)</option>
+        <option value="RC">Resumen diario (RC)</option>
+        <option value="RA">Comunicación de baja (RA)</option>
+      </select>
       <select id="send_mode"><option value="">Modo</option><option>sunat_direct</option><option>pse</option></select>
-      <input id="provider" placeholder="Provider"><input id="series" placeholder="Serie" style="width:5rem"><input id="number" placeholder="Núm" style="width:5rem">
+      <input id="provider" placeholder="Proveedor">
       <label><input type="checkbox" id="errors_only"> Solo errores</label>
       <button class="btn btn-indigo" id="btnLoad">Filtrar</button>
       <button class="btn btn-slate" id="btnRefresh">Actualizar</button>
@@ -34,102 +53,251 @@
 
     <div class="kpi-grid" id="kpis"></div>
 
-    <div class="dash-layout">
-      <div class="dash-card">
+    <div class="dash-card">
+      <div class="table-wrap">
         <table class="dash-table">
-          <thead><tr><th>Tenant</th><th>Documento</th><th>Estado</th><th>Modo</th><th>Prov.</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>RUC</th>
+              <th>Razón social</th>
+              <th>Tenant</th>
+              <th>Ambiente</th>
+              <th>Documento</th>
+              <th>Estado</th>
+              <th>Modo</th>
+              <th>Proveedor</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
           <tbody id="rows"></tbody>
         </table>
-        <p class="pager" id="pager"></p>
       </div>
-      <div class="dash-card dash-detail">
-        <h2>Detalle</h2>
-        <p id="selHint" class="hint-muted">Seleccione una fila de la tabla</p>
-        <div id="detailBox" style="display:none">
-          <div id="badges"></div>
-          <div class="actions">
-            <button class="btn btn-indigo" id="btnResend">Reenviar</button>
-            <button class="btn btn-amber" id="btnRetry">Reintentar</button>
-            <button class="btn btn-violet" id="btnForce">Forzar</button>
-            <button class="btn btn-teal" id="btnEmail">Email</button>
-            <button class="btn btn-sky" id="btnPoll">Poll</button>
-          </div>
-          <div class="actions">
-            <button class="btn btn-slate" data-dl="pdf">Descargar PDF</button>
-            <button class="btn btn-emerald" id="btnViewPdf" type="button">Ver PDF</button>
-            <button class="btn btn-teal" id="btnGenPdf" type="button" style="display:none">Generar PDF</button>
-            <button class="btn btn-slate" data-dl="signed_xml">XML</button>
-            <button class="btn btn-slate" data-dl="cdr">CDR</button>
-            <button class="btn btn-slate" data-dl="unsigned_xml">Unsigned</button>
-          </div>
-          <p id="pdfHint" class="hint-muted" style="display:none"></p>
-          <div id="pdfPreviewWrap" class="pdf-preview-wrap" style="display:none">
-            <h3>Vista previa PDF (wkhtmltopdf)</h3>
-            <iframe id="pdfPreview" class="pdf-preview" title="Vista previa comprobante PDF"></iframe>
-          </div>
-          <h3>Timeline</h3><div class="timeline" id="timeline"></div>
-          <h3>Attempts</h3><pre id="attempts"></pre>
-          <h3>Email</h3><pre id="emails"></pre>
-          <h3>Webhooks</h3><pre id="webhooks"></pre>
-          <h3>JSON</h3><pre id="jsonDetail"></pre>
+      <div class="table-footer">
+        <p class="pager" id="pager"></p>
+        <div class="pager-controls">
+          <button class="btn btn-slate" id="btnPrev">Anterior</button>
+          <button class="btn btn-slate" id="btnNext">Siguiente</button>
         </div>
       </div>
     </div>
   </div>
+
+  <div id="detailModal" class="modal-backdrop" style="display:none">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Detalle de comprobante">
+      <div class="modal-header">
+        <h2>Detalle del comprobante</h2>
+        <button class="btn btn-slate" id="btnCloseModal" type="button">Cerrar</button>
+      </div>
+      <p id="selHint" class="hint-muted">Seleccione una fila de la tabla</p>
+      <div id="detailBox" style="display:none">
+        <div id="badges"></div>
+        <div class="actions">
+          <button class="btn btn-indigo" id="btnResend">Reenviar</button>
+          <button class="btn btn-amber" id="btnRetry">Reintentar</button>
+          <button class="btn btn-violet" id="btnForce">Forzar</button>
+          <button class="btn btn-teal" id="btnEmail">Email</button>
+          <button class="btn btn-sky" id="btnPoll">Consultar ticket</button>
+        </div>
+        <div class="actions">
+          <button class="btn btn-slate" data-dl="pdf">Descargar PDF</button>
+          <button class="btn btn-emerald" id="btnViewPdf" type="button">Ver PDF</button>
+          <button class="btn btn-teal" id="btnGenPdf" type="button" style="display:none">Generar PDF</button>
+          <button class="btn btn-slate" data-dl="signed_xml">XML</button>
+          <button class="btn btn-slate" data-dl="cdr">CDR</button>
+          <button class="btn btn-slate" data-dl="unsigned_xml">Unsigned</button>
+        </div>
+        <p id="pdfHint" class="hint-muted" style="display:none"></p>
+        <div id="pdfPreviewWrap" class="pdf-preview-wrap" style="display:none">
+          <h3>Vista previa PDF (wkhtmltopdf)</h3>
+          <iframe id="pdfPreview" class="pdf-preview" title="Vista previa comprobante PDF"></iframe>
+        </div>
+        <h3>Timeline</h3><div class="timeline" id="timeline"></div>
+        <h3>Intentos</h3><pre id="attempts"></pre>
+        <h3>Emails</h3><pre id="emails"></pre>
+        <h3>Webhooks</h3><pre id="webhooks"></pre>
+        <h3>JSON</h3><pre id="jsonDetail"></pre>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const API='__API_BASE__'; let selectedUuid=null;
+    const API='__API_BASE__';
     const fetchOpts={credentials:'same-origin'};
+    const pageState={offset:0,limit:25,total:0};
+    let selectedUuid=null;
+
     const qs=id=>document.getElementById(id);
-    const url=(p,params)=>{const u=new URL(API+p,location.origin); Object.entries(params||{}).forEach(([k,v])=>{if(v!==''&&v!=null&&v!==false)u.searchParams.set(k,v)}); return u};
-    async function apiFetch(u,opts){const r=await fetch(u,Object.assign({},fetchOpts,opts||{})); if(r.status===401||r.status===403){location.href='/login'; throw new Error('Sesion expirada');} return r;}
-    function badgeClass(st){if(!st)return'';st=String(st).toLowerCase();if(st.includes('accept')||st==='sent')return' badge-ok';if(st.includes('error')||st.includes('reject')||st.includes('fail'))return' badge-err';if(st.includes('retry')||st.includes('queue')||st.includes('pend'))return' badge-warn';return'';}
+    const statusLabel={
+      accepted:'Aceptado', rejected:'Rechazado', error:'Error', queued:'En cola',
+      retrying:'Reintentando', pending:'Pendiente', sending:'Enviando', sent:'Enviado',
+      observed:'Observado', cancelled:'Cancelado'
+    };
+    const envLabel={produccion:'Producción', pruebas:'Pruebas', demo:'Demo'};
+    const documentTypeLabel={
+      '01':'FACTURA',
+      '03':'BOLETA',
+      '07':'NOTA DE CRÉDITO',
+      '08':'NOTA DE DÉBITO',
+      '09':'GUÍA DE REMISIÓN',
+      'RC':'RESUMEN DIARIO',
+      'RA':'COMUNICACIÓN DE BAJA'
+    };
+
+    function formatDate(d){
+      const dt=new Date(d);
+      if (Number.isNaN(dt.getTime())) return d || '';
+      return dt.toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'});
+    }
+
+    function statusText(st){
+      const key=String(st||'').toLowerCase();
+      return statusLabel[key] || st || '—';
+    }
+
+    function ambienteText(v){
+      const key=String(v||'').toLowerCase();
+      return envLabel[key] || (v ? v.charAt(0).toUpperCase()+v.slice(1) : '—');
+    }
+
+    function documentText(type, series, number){
+      const code=String(type||'').toUpperCase();
+      const label=documentTypeLabel[code] || `DOC ${code || '—'}`;
+      const correlative=((series || '') + '-' + (number || '')).replace(/^-+|-+$/g, '');
+      return correlative ? `${label} ${correlative}` : label;
+    }
+
+    function badgeClass(st){
+      if(!st)return'';
+      st=String(st).toLowerCase();
+      if(st.includes('accept')||st==='sent')return' badge-ok';
+      if(st.includes('error')||st.includes('reject')||st.includes('fail'))return' badge-err';
+      if(st.includes('retry')||st.includes('queue')||st.includes('pend')||st.includes('send'))return' badge-warn';
+      return'';
+    }
+
+    const url=(p,params)=>{
+      const u=new URL(API+p,location.origin);
+      Object.entries(params||{}).forEach(([k,v])=>{if(v!==''&&v!=null&&v!==false)u.searchParams.set(k,v)});
+      return u;
+    };
+
+    async function apiFetch(u,opts){
+      const r=await fetch(u,Object.assign({},fetchOpts,opts||{}));
+      if(r.status===401||r.status===403){location.href='/login'; throw new Error('Sesión expirada');}
+      return r;
+    }
+
+    function currentFilters(){
+      return {
+        company_ruc: qs('company_ruc').value,
+        status: qs('status').value,
+        document_type: qs('document_type').value,
+        send_mode: qs('send_mode').value,
+        provider: qs('provider').value,
+        from: qs('from').value,
+        to: qs('to').value,
+        errors_only: qs('errors_only').checked,
+      };
+    }
+
     async function loadStats(){
-      const s=await apiFetch(url('/stats',{tenant_slug:qs('tenant_slug').value})).then(r=>r.json());
-      const items=[['Total',s.total,'indigo'],['Pendientes',s.pending,'amber'],['Cola',s.in_queue,'sky'],['Procesando',s.processing,'violet'],['Aceptados',s.accepted,'emerald'],['Errores',s.errors,'rose'],['Retries',s.retries,'amber'],['Emails',s.emails_pending,'teal']];
-      qs('kpis').innerHTML=items.map(([l,n,c])=>'<div class="kpi kpi-'+c+'"><div class="kpi-val">'+(n??0)+'</div><div class="kpi-lbl">'+l+'</div></div>').join('');
+      const f=currentFilters();
+      const s=await apiFetch(url('/stats',{from:f.from,to:f.to,company_ruc:f.company_ruc})).then(r=>r.json());
+      const items=[
+        ['Total',s.total,'indigo'],['Pendientes',s.pending,'amber'],['Cola',s.in_queue,'sky'],
+        ['Procesando',s.processing,'violet'],['Aceptados',s.accepted,'emerald'],
+        ['Errores',s.errors,'rose'],['Reintentos',s.retries,'amber'],['Emails',s.emails_pending,'teal']
+      ];
+      qs('kpis').innerHTML=items.map(([l,n,c])=>`<div class="kpi kpi-${c}"><div class="kpi-val">${n??0}</div><div class="kpi-lbl">${l}</div></div>`).join('');
     }
+
     async function loadList(){
-      const p={tenant_slug:qs('tenant_slug').value,status:qs('status').value,document_type:qs('document_type').value,send_mode:qs('send_mode').value,provider:qs('provider').value,series:qs('series').value,number:qs('number').value,from:qs('from').value,to:qs('to').value,errors_only:qs('errors_only').checked,limit:100};
+      const f=currentFilters();
+      const p=Object.assign({},f,{offset:pageState.offset,limit:pageState.limit,include_total:true});
       const data=await apiFetch(url('/documents',p)).then(r=>r.json());
-      qs('rows').innerHTML=(data.items||[]).map(d=>'<tr data-u="'+d.document_uuid+'"><td>'+d.tenant_slug+'</td><td>'+d.document_type+' '+d.series+'-'+d.number+'</td><td><span class="badge'+badgeClass(d.status)+'">'+d.status+'</span></td><td>'+(d.send_mode||'')+'</td><td>'+(d.provider||'')+'</td></tr>').join('');
-      qs('pager').textContent='Total: '+(data.total||0);
-      document.querySelectorAll('#rows tr').forEach(tr=>tr.onclick=()=>{document.querySelectorAll('#rows tr').forEach(r=>r.classList.remove('selected'));tr.classList.add('selected');detail(tr.dataset.u);});
+      pageState.total=Number(data.total||0);
+
+      qs('rows').innerHTML=(data.items||[]).map(d=>{
+        return `<tr data-u="${d.document_uuid}">
+          <td>${formatDate(d.created_at)}</td>
+          <td>${d.company_ruc||'—'}</td>
+          <td>${d.company_name||'—'}</td>
+          <td>${d.tenant_slug||'—'}</td>
+          <td>${ambienteText(d.company_environment)}</td>
+          <td>${documentText(d.document_type,d.series,d.number)}</td>
+          <td><span class="badge ${badgeClass(d.status)}">${statusText(d.status)}</span></td>
+          <td>${d.send_mode||'—'}</td>
+          <td>${d.provider||'—'}</td>
+          <td><button class="btn btn-indigo btn-xs" type="button" data-open="${d.document_uuid}">Ver detalle</button></td>
+        </tr>`;
+      }).join('');
+
+      const start=pageState.total===0?0:(pageState.offset+1);
+      const end=Math.min(pageState.offset+pageState.limit,pageState.total);
+      qs('pager').textContent=`Mostrando ${start}-${end} de ${pageState.total}`;
+      qs('btnPrev').disabled=pageState.offset<=0;
+      qs('btnNext').disabled=(pageState.offset+pageState.limit)>=pageState.total;
+
+      document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openDetail(b.getAttribute('data-open')));
     }
+
+    async function openDetail(uuid){
+      qs('detailModal').style.display='flex';
+      await detail(uuid);
+    }
+
+    function closeDetail(){
+      qs('detailModal').style.display='none';
+      qs('pdfPreviewWrap').style.display='none';
+      qs('pdfPreview').src='about:blank';
+    }
+
     async function detail(uuid){
       selectedUuid=uuid;
       const d=await apiFetch(url('/documents/'+uuid)).then(r=>r.json());
-      qs('selHint').style.display='none'; qs('detailBox').style.display='block';
+      qs('selHint').style.display='none';
+      qs('detailBox').style.display='block';
       const doc=d.document||{};
       const pdfBadge=doc.pdf_available?'<span class="badge badge-ok">PDF listo</span>':(doc.pdf_can_generate?'<span class="badge badge-warn">PDF generable</span>':'<span class="badge">Sin PDF</span>');
-      qs('badges').innerHTML='<span class="badge'+badgeClass(doc.status)+'">'+doc.status+'</span> <span class="badge">'+ (doc.send_mode||'—')+'</span> <span class="badge">'+ (doc.provider||'—')+'</span> '+pdfBadge;
-      qs('timeline').innerHTML=(d.timeline||[]).map(ev=>'<div><strong>'+ev.type+'</strong> '+ev.at+'<br><small>'+JSON.stringify(ev)+'</small></div>').join('');
+      qs('badges').innerHTML=`
+        <span class="badge ${badgeClass(doc.status)}">${statusText(doc.status)}</span>
+        <span class="badge">${doc.send_mode||'—'}</span>
+        <span class="badge">${doc.provider||'—'}</span>
+        ${pdfBadge}`;
+
+      qs('timeline').innerHTML=(d.timeline||[]).map(ev=>`<div><strong>${ev.type}</strong> ${ev.at}<br><small>${JSON.stringify(ev)}</small></div>`).join('');
       qs('attempts').textContent=JSON.stringify(d.attempts||[],null,2);
       qs('emails').textContent=JSON.stringify(d.email_logs||[],null,2);
       qs('webhooks').textContent=JSON.stringify(d.webhook_events||[],null,2);
       qs('jsonDetail').textContent=JSON.stringify(d,null,2);
+
       const canPdf=!!doc.pdf_can_generate;
       const hasPdf=!!doc.pdf_available;
       qs('btnViewPdf').style.display=canPdf?'inline-flex':'none';
       qs('btnGenPdf').style.display=(canPdf && !hasPdf)?'inline-flex':'none';
       qs('pdfPreviewWrap').style.display='none';
       qs('pdfPreview').src='about:blank';
+
       const hint=qs('pdfHint');
       if(!canPdf){
         hint.style.display='block';
-        hint.textContent='PDF no disponible: el documento necesita XML firmado almacenado (SUNAT directo o PSE con respuesta xml).';
+        hint.textContent='PDF no disponible: el documento necesita XML firmado almacenado.';
       } else if(!hasPdf){
         hint.style.display='block';
-        hint.textContent='PDF aún no generado. Use «Generar PDF» o «Ver PDF» (wkhtmltopdf en el servidor).';
+        hint.textContent='PDF aún no generado. Use «Generar PDF» o «Ver PDF».';
       } else {
         hint.style.display='none';
         hint.textContent='';
       }
     }
+
     function showPdfInline(){
       if(!selectedUuid)return;
       qs('pdfPreviewWrap').style.display='block';
       qs('pdfPreview').src=url('/documents/'+selectedUuid+'/download/pdf',{view:'inline'});
     }
+
     async function generatePdf(){
       if(!selectedUuid)return;
       qs('btnGenPdf').disabled=true;
@@ -145,14 +313,42 @@
         qs('btnGenPdf').disabled=false;
       }
     }
-    async function action(path){if(!selectedUuid)return; await apiFetch(url('/documents/'+selectedUuid+path),{method:'POST'}); await detail(selectedUuid); await loadStats(); await loadList();}
+
+    async function action(path){
+      if(!selectedUuid)return;
+      await apiFetch(url('/documents/'+selectedUuid+path),{method:'POST'});
+      await detail(selectedUuid);
+      await loadStats();
+      await loadList();
+    }
+
+    function setTodayRange(){
+      const now=new Date();
+      const y=now.getFullYear();
+      const m=String(now.getMonth()+1).padStart(2,'0');
+      const d=String(now.getDate()).padStart(2,'0');
+      const today=`${y}-${m}-${d}`;
+      qs('from').value=today;
+      qs('to').value=today;
+    }
+
+    qs('btnLoad').onclick=()=>{pageState.offset=0; loadStats(); loadList();};
+    qs('btnRefresh').onclick=()=>{loadStats(); loadList(); if(selectedUuid)detail(selectedUuid);};
+    qs('btnPrev').onclick=()=>{if(pageState.offset<=0)return; pageState.offset=Math.max(0,pageState.offset-pageState.limit); loadList();};
+    qs('btnNext').onclick=()=>{if(pageState.offset+pageState.limit>=pageState.total)return; pageState.offset+=pageState.limit; loadList();};
+    qs('btnCloseModal').onclick=closeDetail;
+    qs('detailModal').onclick=(e)=>{if(e.target===qs('detailModal'))closeDetail();};
+
     document.querySelectorAll('[data-dl]').forEach(b=>b.onclick=()=>{if(selectedUuid)window.open(url('/documents/'+selectedUuid+'/download/'+b.dataset.dl),'_blank');});
     qs('btnViewPdf').onclick=showPdfInline;
     qs('btnGenPdf').onclick=generatePdf;
-    qs('btnLoad').onclick=()=>{loadStats();loadList();};
-    qs('btnRefresh').onclick=()=>{loadStats();loadList(); if(selectedUuid)detail(selectedUuid);};
-    ['btnResend','/send','btnRetry','/retry','btnForce','/force','btnEmail','/email','btnPoll','/poll'].reduce((_,v,i,a)=>{if(i%2===0)qs(v).onclick=()=>action(a[i+1]);});
-    loadStats(); loadList(); setInterval(()=>{if(!document.hidden){loadStats();loadList();}},30000);
+    ['btnResend','/send','btnRetry','/retry','btnForce','/force','btnEmail','/email','btnPoll','/poll']
+      .reduce((_,v,i,a)=>{if(i%2===0)qs(v).onclick=()=>action(a[i+1]);});
+
+    setTodayRange();
+    loadStats();
+    loadList();
+    setInterval(()=>{if(!document.hidden){loadStats();loadList();}},30000);
   </script>
 </body>
 </html>

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Controller\v1;
 
 use App\Entity\FiscalDocument;
+use App\Entity\Empresa;
+use App\Repository\EmpresaRepository;
 use App\Repository\FiscalDocumentRepository;
 use App\Service\Fiscal\CdrNormalizer;
 use App\Service\Fiscal\FiscalBulkActionService;
@@ -36,6 +38,7 @@ class FiscalController extends AbstractController
     private FiscalQueueService $queue;
     private FiscalFileFetcher $fileFetcher;
     private FiscalBulkActionService $bulkService;
+    private EmpresaRepository $empresaRepo;
     private FiscalCompanySyncService $companySyncService;
     private FiscalConnectionTestService $connectionTestService;
     private FiscalDocumentPdfResolver $pdfResolver;
@@ -47,6 +50,7 @@ class FiscalController extends AbstractController
         FiscalQueueService $queue,
         FiscalFileFetcher $fileFetcher,
         FiscalBulkActionService $bulkService,
+        EmpresaRepository $empresaRepo,
         FiscalCompanySyncService $companySyncService,
         FiscalConnectionTestService $connectionTestService,
         FiscalDocumentPdfResolver $pdfResolver
@@ -57,6 +61,7 @@ class FiscalController extends AbstractController
         $this->queue = $queue;
         $this->fileFetcher = $fileFetcher;
         $this->bulkService = $bulkService;
+        $this->empresaRepo = $empresaRepo;
         $this->companySyncService = $companySyncService;
         $this->connectionTestService = $connectionTestService;
         $this->pdfResolver = $pdfResolver;
@@ -134,9 +139,18 @@ class FiscalController extends AbstractController
     public function stats(Request $request): JsonResponse
     {
         $tenantSlug = $this->q($request, 'tenant_slug');
+        $companyRuc = $this->q($request, 'company_ruc');
         $fromStr = $request->query->get('from');
         $toStr = $request->query->get('to');
         $tenantId = $request->query->get('tenant_id');
+
+        if (($tenantSlug === null || $tenantSlug === '') && $companyRuc !== null && $companyRuc !== '') {
+            $ruc = (string) preg_replace('/\D/', '', $companyRuc);
+            $empresa = $ruc !== '' ? $this->empresaRepo->findByRuc($ruc) : null;
+            if ($empresa !== null && $empresa->getTenantSlug() !== null && $empresa->getTenantSlug() !== '') {
+                $tenantSlug = $empresa->getTenantSlug();
+            }
+        }
 
         return new JsonResponse($this->detailService->globalStats(
             $tenantSlug,
@@ -170,8 +184,16 @@ class FiscalController extends AbstractController
             $total = $this->repo->countByFilters($filters);
         }
 
+        $tenantSlugs = array_values(array_unique(array_filter(array_map(static function (FiscalDocument $doc): string {
+            return $doc->getTenantSlug();
+        }, $docs))));
+        $empresaBySlug = $this->empresaRepo->findByTenantSlugs($tenantSlugs);
+
         $response = [
-            'items' => array_map([$this, 'serializeDocSummary'], $docs),
+            'items' => array_map(function (FiscalDocument $doc) use ($empresaBySlug): array {
+                $slug = $doc->getTenantSlug();
+                return $this->serializeDocSummary($doc, $empresaBySlug[$slug] ?? null);
+            }, $docs),
             'counts' => $this->repo->countByStatus(
                 $filters['tenant_slug'],
                 $filters['from'] ?? null,
@@ -482,11 +504,12 @@ class FiscalController extends AbstractController
     /**
      * @return array<string, mixed>
      */
-    private function serializeDocSummary(FiscalDocument $doc): array
+    private function serializeDocSummary(FiscalDocument $doc, ?Empresa $empresa = null): array
     {
         $snapshot = json_decode($doc->getSnapshotJson(), true);
         $customerName = null;
         $companyRuc = null;
+        $companyName = null;
         $total = null;
         if (is_array($snapshot)) {
             if (isset($snapshot['customer']) && is_array($snapshot['customer'])) {
@@ -496,7 +519,20 @@ class FiscalController extends AbstractController
                     ?? null;
             }
             $companyRuc = $snapshot['company_ruc'] ?? ($snapshot['company']['ruc'] ?? null);
+            $companyName = $snapshot['company']['razonSocial']
+                ?? $snapshot['company']['nombreComercial']
+                ?? $snapshot['company']['name']
+                ?? null;
             $total = $snapshot['mtoImpVenta'] ?? $snapshot['total'] ?? $snapshot['importeTotal'] ?? null;
+        }
+
+        if ($empresa !== null) {
+            if ($companyRuc === null) {
+                $companyRuc = $empresa->getRuc();
+            }
+            if ($companyName === null || $companyName === '') {
+                $companyName = $doc->getTenantSlug();
+            }
         }
 
         return [
@@ -515,6 +551,8 @@ class FiscalController extends AbstractController
             'sunat_message' => $doc->getSunatMessage(),
             'customer_name' => $customerName,
             'company_ruc' => $companyRuc,
+            'company_name' => $companyName,
+            'company_environment' => $empresa?->getAmbiente(),
             'total' => $total,
             'customer_email' => $doc->getCustomerEmail(),
             'email_status' => $doc->getEmailStatus(),

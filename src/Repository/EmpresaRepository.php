@@ -59,4 +59,32 @@ class EmpresaRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['ruc' => $ruc]);
     }
+
+    /**
+     * @param string[] $slugs
+     * @return array<string, Empresa>
+     */
+    public function findByTenantSlugs(array $slugs): array
+    {
+        $slugs = array_values(array_unique(array_filter(array_map('strval', $slugs))));
+        if ($slugs === []) {
+            return [];
+        }
+
+        $rows = $this->createQueryBuilder('e')
+            ->andWhere('e.tenantSlug IN (:slugs)')
+            ->setParameter('slugs', $slugs)
+            ->getQuery()
+            ->getResult();
+
+        $out = [];
+        foreach ($rows as $empresa) {
+            if (!$empresa instanceof Empresa || $empresa->getTenantSlug() === null) {
+                continue;
+            }
+            $out[$empresa->getTenantSlug()] = $empresa;
+        }
+
+        return $out;
+    }
 }

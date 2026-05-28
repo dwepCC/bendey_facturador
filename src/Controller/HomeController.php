@@ -24,9 +24,7 @@ class HomeController
      */
     public function index(Request $request): Response
     {
-        $pathDocs = $request->getUriForPath('/swagger');
         $content = file_get_contents(__DIR__ . '/../../views/welcome.html');
-        $content = str_replace('__SWAGGER_URL__', $pathDocs, $content);
 
         return new Response($content, 200, ['Content-Type' => 'text/html; charset=utf-8']);
     }

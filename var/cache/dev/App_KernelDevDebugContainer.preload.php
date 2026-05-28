@@ -10,7 +10,7 @@ if (in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) {
 }
 
 require dirname(__DIR__, 3).''.\DIRECTORY_SEPARATOR.'vendor/autoload.php';
-(require __DIR__.'/App_KernelDevDebugContainer.php')->set(\ContainerGzcUNgA\App_KernelDevDebugContainer::class, null);
+(require __DIR__.'/App_KernelDevDebugContainer.php')->set(\ContainerB6HuHsX\App_KernelDevDebugContainer::class, null);
 
 $classes = [];
 $classes[] = 'Symfony\Bundle\FrameworkBundle\FrameworkBundle';
@@ -113,6 +113,7 @@ $classes[] = 'Symfony\Bundle\FrameworkBundle\Controller\TemplateController';
 $classes[] = 'Symfony\Component\Cache\Adapter\PhpArrayAdapter';
 $classes[] = 'Doctrine\Common\Annotations\PsrCachedReader';
 $classes[] = 'Doctrine\Common\Annotations\AnnotationReader';
+$classes[] = 'Doctrine\Common\Annotations\AnnotationRegistry';
 $classes[] = 'Symfony\Component\Cache\Adapter\AdapterInterface';
 $classes[] = 'Symfony\Component\Cache\Adapter\AbstractAdapter';
 $classes[] = 'Symfony\Component\Cache\Adapter\FilesystemAdapter';
@@ -226,11 +227,12 @@ $classes[] = 'JMS\SerializerBundle\Debug\TraceableFileLocator';
 $classes[] = 'Metadata\Driver\FileLocator';
 $classes[] = 'JMS\Serializer\Naming\IdenticalPropertyNamingStrategy';
 $classes[] = 'JMS\Serializer\Metadata\Driver\XmlDriver';
-$classes[] = 'JMS\Serializer\Metadata\Driver\AnnotationDriver';
-$classes[] = 'JMS\Serializer\Metadata\Driver\AttributeDriver\AttributeReader';
+$classes[] = 'JMS\Serializer\Metadata\Driver\AnnotationOrAttributeDriver';
+$classes[] = 'JMS\Serializer\Metadata\Driver\NullDriver';
 $classes[] = 'JMS\SerializerBundle\Serializer\StopwatchEventSubscriber';
 $classes[] = 'JMS\SerializerBundle\Debug\RunsListener';
 $classes[] = 'JMS\Serializer\Type\Parser';
+$classes[] = 'JMS\Serializer\Handler\UnionHandler';
 $classes[] = 'App\Kernel';
 $classes[] = 'Symfony\Component\HttpKernel\EventListener\LocaleListener';
 $classes[] = 'Symfony\Component\Mailer\EventListener\EnvelopeListener';

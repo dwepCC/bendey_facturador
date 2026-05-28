@@ -116,13 +116,11 @@
           <parameter>GET</parameter>
         </parameter>
         <parameter key="max_age">3600</parameter>
-        <parameter key="skip_same_as_origin">true</parameter>
       </parameter>
       <parameter key="^/swagger" type="collection">
         <parameter key="allow_methods" type="collection">
           <parameter>GET</parameter>
         </parameter>
-        <parameter key="skip_same_as_origin">true</parameter>
       </parameter>
     </parameter>
     <parameter key="nelmio_cors.defaults" type="collection">
@@ -134,6 +132,7 @@
         <parameter>content-type</parameter>
         <parameter>authorization</parameter>
       </parameter>
+      <parameter key="allow_private_network">false</parameter>
       <parameter key="expose_headers" type="collection">
         <parameter>Link</parameter>
       </parameter>
@@ -143,8 +142,8 @@
       <parameter key="max_age">3600</parameter>
       <parameter key="hosts" type="collection"/>
       <parameter key="origin_regex">true</parameter>
-      <parameter key="forced_allow_origin_value">null</parameter>
       <parameter key="skip_same_as_origin">true</parameter>
+      <parameter key="forced_allow_origin_value">null</parameter>
     </parameter>
     <parameter key="nelmio_cors.cors_listener.class">Nelmio\CorsBundle\EventListener\CorsListener</parameter>
     <parameter key="nelmio_cors.options_resolver.class">Nelmio\CorsBundle\Options\Resolver</parameter>
@@ -368,6 +367,7 @@
       <argument type="service" id="App\Service\Fiscal\FiscalQueueService"/>
       <argument type="service" id="App\Service\Fiscal\FiscalFileFetcher"/>
       <argument type="service" id="App\Service\Fiscal\FiscalBulkActionService"/>
+      <argument type="service" id="App\Repository\EmpresaRepository"/>
       <argument type="service" id="App\Service\Fiscal\FiscalCompanySyncService"/>
       <argument type="service" id="App\Service\Fiscal\FiscalConnectionTestService"/>
       <argument type="service" id="App\Service\Fiscal\FiscalDocumentPdfResolver"/>
@@ -1651,6 +1651,7 @@
       <tag name="event_dispatcher">event_dispatcher.dispatcher</tag>
       <tag name="monolog.logger" channel="event"/>
       <tag name="kernel.reset" method="reset"/>
+      <tag name="container.decorator" id="event_dispatcher"/>
       <argument type="service" id="debug.event_dispatcher.inner"/>
       <argument type="service" id="debug.stopwatch"/>
       <argument type="service" id="monolog.logger.event" on-invalid="null"/>
@@ -1677,7 +1678,7 @@
           <argument type="service_closure" id="nelmio_cors.cacheable_response_vary_listener"/>
           <argument>onResponse</argument>
         </argument>
-        <argument>-10</argument>
+        <argument>-15</argument>
       </call>
       <call method="addListener">
         <argument>console.command</argument>
@@ -2002,10 +2003,12 @@
     </service>
     <service id="debug.controller_resolver" class="Symfony\Component\HttpKernel\Controller\TraceableControllerResolver">
       <tag name="monolog.logger" channel="request"/>
+      <tag name="container.decorator" id="controller_resolver"/>
       <argument type="service" id="debug.controller_resolver.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver" class="Symfony\Component\HttpKernel\Controller\TraceableArgumentResolver">
+      <tag name="container.decorator" id="argument_resolver"/>
       <argument type="service" id="debug.argument_resolver.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
@@ -2160,7 +2163,12 @@
     <service id="annotations.reader" class="Doctrine\Common\Annotations\AnnotationReader">
       <call method="addGlobalIgnoredName">
         <argument>required</argument>
-        <argument>null</argument>
+        <argument type="service" id="annotations.dummy_registry" on-invalid="null"/>
+      </call>
+    </service>
+    <service id="annotations.dummy_registry" class="Doctrine\Common\Annotations\AnnotationRegistry">
+      <call method="registerUniqueLoader">
+        <argument>class_exists</argument>
       </call>
     </service>
     <service id="annotations.cached_reader" class="Doctrine\Common\Annotations\PsrCachedReader">
@@ -2347,7 +2355,7 @@
       <tag name="container.hot_path"/>
       <tag name="container.hot_path"/>
       <tag name="container.hot_path"/>
-      <argument type="service" id=".service_locator.GVyCdgr"/>
+      <argument type="service" id=".service_locator.XmPJruK"/>
       <argument>true</argument>
       <argument>%session.storage.options%</argument>
     </service>
@@ -2389,7 +2397,7 @@
       <argument>%nelmio_cors.defaults%</argument>
     </service>
     <service id="nelmio_cors.cacheable_response_vary_listener" class="Nelmio\CorsBundle\EventListener\CacheableResponseVaryListener">
-      <tag name="kernel.event_listener" event="kernel.response" method="onResponse" priority="-10"/>
+      <tag name="kernel.event_listener" event="kernel.response" method="onResponse" priority="-15"/>
       <tag name="container.hot_path"/>
     </service>
     <service id="jms_serializer.event_dispatcher" class="JMS\SerializerBundle\Debug\TraceableEventDispatcher">
@@ -2541,12 +2549,17 @@
       <tag name="container.service_locator"/>
       <tag name="default">jms_serializer.instance</tag>
       <argument type="collection">
+        <argument key="jms_serializer.union_handler" type="service_closure" id="jms_serializer.union_handler"/>
         <argument key="jms_serializer.array_collection_handler" type="service_closure" id="jms_serializer.array_collection_handler"/>
-        <argument key="jms_serializer.constraint_violation_handler" type="service_closure" id="jms_serializer.constraint_violation_handler"/>
         <argument key="jms_serializer.datetime_handler" type="service_closure" id="jms_serializer.datetime_handler"/>
-        <argument key="jms_serializer.form_error_handler" type="service_closure" id="jms_serializer.form_error_handler"/>
         <argument key="jms_serializer.iterator_handler" type="service_closure" id="jms_serializer.iterator_handler"/>
+        <argument key="jms_serializer.constraint_violation_handler" type="service_closure" id="jms_serializer.constraint_violation_handler"/>
+        <argument key="jms_serializer.form_error_handler" type="service_closure" id="jms_serializer.form_error_handler"/>
       </argument>
+    </service>
+    <service id="jms_serializer.union_handler" class="JMS\Serializer\Handler\UnionHandler">
+      <tag name="jms_serializer.subscribing_handler"/>
+      <tag name="default">jms_serializer.instance</tag>
     </service>
     <service id="jms_serializer.array_collection_handler" class="JMS\Serializer\Handler\ArrayCollectionHandler">
       <tag name="jms_serializer.subscribing_handler"/>
@@ -2563,6 +2576,9 @@
       <argument>Y-m-d\TH:i:sP</argument>
       <argument>UTC</argument>
       <argument>true</argument>
+      <argument type="collection">
+        <argument>Y-m-d\TH:i:sP</argument>
+      </argument>
     </service>
     <service id="jms_serializer.form_error_handler" class="JMS\Serializer\Handler\FormErrorHandler">
       <tag name="jms_serializer.subscribing_handler"/>
@@ -2590,12 +2606,16 @@
       <argument type="service" id="jms_serializer.type_parser" on-invalid="null"/>
       <argument>null</argument>
     </service>
-    <service id="jms_serializer.metadata.annotation_driver" class="JMS\Serializer\Metadata\Driver\AnnotationDriver">
+    <service id="jms_serializer.metadata.annotation_or_attribute_driver" class="JMS\Serializer\Metadata\Driver\AnnotationOrAttributeDriver">
       <tag name="default">jms_serializer.instance</tag>
-      <argument type="service" id="jms_serializer.metadata.annotation_and_attributes_reader"/>
       <argument type="service" id="jms_serializer.identical_property_naming_strategy"/>
       <argument type="service" id="jms_serializer.type_parser" on-invalid="null"/>
       <argument>null</argument>
+      <argument type="service" id="annotations.cached_reader" on-invalid="null"/>
+    </service>
+    <service id="jms_serializer.metadata.null_driver" class="JMS\Serializer\Metadata\Driver\NullDriver">
+      <tag name="default">jms_serializer.instance</tag>
+      <argument type="service" id="jms_serializer.identical_property_naming_strategy"/>
     </service>
     <service id="jms_serializer.metadata.doctrine_type_driver" class="JMS\Serializer\Metadata\Driver\DoctrineTypeDriver">
       <argument type="service" id="jms_serializer.metadata.doctrine_type_driver.inner"/>
@@ -2604,6 +2624,7 @@
     </service>
     <service id="jms_serializer.metadata.typed_properties_driver" class="JMS\Serializer\Metadata\Driver\TypedPropertiesDriver">
       <tag name="default">jms_serializer.instance</tag>
+      <tag name="container.decorator" id="jms_serializer.metadata_driver"/>
       <argument type="service" id="jms_serializer.metadata.doctrine_type_driver"/>
       <argument type="service" id="jms_serializer.type_parser" on-invalid="null"/>
     </service>
@@ -2640,6 +2661,7 @@
     </service>
     <service id="jms_serializer.doctrine_object_constructor" class="JMS\Serializer\Construction\DoctrineObjectConstructor">
       <tag name="default">jms_serializer.instance</tag>
+      <tag name="container.decorator" id="jms_serializer.object_constructor"/>
       <argument type="service" id="doctrine" on-invalid="ignore"/>
       <argument type="service" id="jms_serializer.doctrine_object_constructor.inner"/>
       <argument type="string">null</argument>
@@ -2757,12 +2779,266 @@
     <service id="jms_serializer.traceable_metadata_factory" class="JMS\SerializerBundle\Debug\TraceableMetadataFactory">
       <tag name="default">jms_serializer.instance</tag>
       <tag name="jms_serializer.profiler"/>
+      <tag name="container.decorator" id="jms_serializer.metadata_factory"/>
       <argument type="service" id="jms_serializer.traceable_metadata_factory.inner"/>
     </service>
     <service id="jms_serializer.traceable_handler_registry" class="JMS\SerializerBundle\Debug\TraceableHandlerRegistry">
       <tag name="default">jms_serializer.instance</tag>
       <tag name="jms_serializer.profiler"/>
+      <tag name="container.decorator" id="jms_serializer.handler_registry"/>
       <argument type="service" id="jms_serializer.traceable_handler_registry.inner"/>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>union</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.union_handler</argument>
+          <argument>deserializeUnion</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>union</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.union_handler</argument>
+          <argument>deserializeUnion</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>ArrayCollection</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>ArrayCollection</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\Common\Collections\ArrayCollection</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\Common\Collections\ArrayCollection</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\ORM\PersistentCollection</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\ORM\PersistentCollection</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\ODM\MongoDB\PersistentCollection</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\ODM\MongoDB\PersistentCollection</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\ODM\PHPCR\PersistentCollection</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Doctrine\ODM\PHPCR\PersistentCollection</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.array_collection_handler</argument>
+          <argument>deserializeCollection</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateTime</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateTimeFromjson</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateTime</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateTimeFromxml</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateTimeImmutable</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateTimeImmutableFromjson</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateTimeImmutable</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateTimeImmutableFromxml</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateInterval</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateIntervalFromjson</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateInterval</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateIntervalFromxml</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateTimeInterface</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateTimeFromJson</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>DateTimeInterface</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.datetime_handler</argument>
+          <argument>deserializeDateTimeFromXml</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Iterator</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.iterator_handler</argument>
+          <argument>deserializeIterator</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Iterator</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.iterator_handler</argument>
+          <argument>deserializeIterator</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>ArrayIterator</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.iterator_handler</argument>
+          <argument>deserializeIterator</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>ArrayIterator</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.iterator_handler</argument>
+          <argument>deserializeIterator</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Generator</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.iterator_handler</argument>
+          <argument>deserializeGenerator</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>2</argument>
+        <argument>Generator</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.iterator_handler</argument>
+          <argument>deserializeGenerator</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>1</argument>
+        <argument>union</argument>
+        <argument>json</argument>
+        <argument type="collection">
+          <argument>jms_serializer.union_handler</argument>
+          <argument>serializeUnion</argument>
+        </argument>
+      </call>
+      <call method="registerHandler">
+        <argument>1</argument>
+        <argument>union</argument>
+        <argument>xml</argument>
+        <argument type="collection">
+          <argument>jms_serializer.union_handler</argument>
+          <argument>serializeUnion</argument>
+        </argument>
+      </call>
       <call method="registerHandler">
         <argument>1</argument>
         <argument>ArrayCollection</argument>
@@ -3069,230 +3345,11 @@
           <argument>serializeIterable</argument>
         </argument>
       </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>ArrayCollection</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>ArrayCollection</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\Common\Collections\ArrayCollection</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\Common\Collections\ArrayCollection</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\ORM\PersistentCollection</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\ORM\PersistentCollection</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\ODM\MongoDB\PersistentCollection</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\ODM\MongoDB\PersistentCollection</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\ODM\PHPCR\PersistentCollection</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Doctrine\ODM\PHPCR\PersistentCollection</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.array_collection_handler</argument>
-          <argument>deserializeCollection</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateTime</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateTimeFromjson</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateTime</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateTimeFromxml</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateTimeImmutable</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateTimeImmutableFromjson</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateTimeImmutable</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateTimeImmutableFromxml</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateInterval</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateIntervalFromjson</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateInterval</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateIntervalFromxml</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateTimeInterface</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateTimeFromJson</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>DateTimeInterface</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.datetime_handler</argument>
-          <argument>deserializeDateTimeFromXml</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Iterator</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.iterator_handler</argument>
-          <argument>deserializeIterator</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Iterator</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.iterator_handler</argument>
-          <argument>deserializeIterator</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>ArrayIterator</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.iterator_handler</argument>
-          <argument>deserializeIterator</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>ArrayIterator</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.iterator_handler</argument>
-          <argument>deserializeIterator</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Generator</argument>
-        <argument>json</argument>
-        <argument type="collection">
-          <argument>jms_serializer.iterator_handler</argument>
-          <argument>deserializeGenerator</argument>
-        </argument>
-      </call>
-      <call method="registerHandler">
-        <argument>2</argument>
-        <argument>Generator</argument>
-        <argument>xml</argument>
-        <argument type="collection">
-          <argument>jms_serializer.iterator_handler</argument>
-          <argument>deserializeGenerator</argument>
-        </argument>
-      </call>
     </service>
     <service id="jms_serializer.metadata.traceable_file_locator" class="JMS\SerializerBundle\Debug\TraceableFileLocator">
       <tag name="default">jms_serializer.instance</tag>
+      <tag name="container.decorator" id="jms_serializer.metadata.file_locator"/>
       <argument type="service" id="jms_serializer.metadata.traceable_file_locator.inner"/>
-    </service>
-    <service id="jms_serializer.metadata.annotation_and_attributes_reader" class="JMS\Serializer\Metadata\Driver\AttributeDriver\AttributeReader">
-      <tag name="default">jms_serializer.instance</tag>
-      <argument type="service" id="annotations.cached_reader"/>
     </service>
     <service id="monolog.logger" class="Symfony\Bridge\Monolog\Logger">
       <argument>app</argument>
@@ -3827,6 +3884,7 @@
       </call>
     </service>
     <service id="doctrine.migrations.container_aware_migrations_factory" class="Doctrine\Bundle\MigrationsBundle\MigrationsFactory\ContainerAwareMigrationFactory">
+      <tag name="container.decorator" id="doctrine.migrations.migrations_factory"/>
       <argument type="service" id="doctrine.migrations.container_aware_migrations_factory.inner"/>
       <argument type="service" id="service_container"/>
     </service>
@@ -3838,6 +3896,9 @@
       <call method="setName">
         <argument>doctrine:migrations:diff</argument>
       </call>
+      <call method="setDescription">
+        <argument>Generate a migration by comparing your current database to your mapping information.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.sync_metadata_command" class="Doctrine\Migrations\Tools\Console\Command\SyncMetadataCommand">
       <tag name="console.command" command="doctrine:migrations:sync-metadata-storage"/>
@@ -3846,6 +3907,9 @@
       <argument>doctrine:migrations:sync-metadata-storage</argument>
       <call method="setName">
         <argument>doctrine:migrations:sync-metadata-storage</argument>
+      </call>
+      <call method="setDescription">
+        <argument>Ensures that the metadata storage is at the latest version.</argument>
       </call>
     </service>
     <service id="doctrine_migrations.versions_command" class="Doctrine\Migrations\Tools\Console\Command\ListCommand">
@@ -3856,6 +3920,9 @@
       <call method="setName">
         <argument>doctrine:migrations:list</argument>
       </call>
+      <call method="setDescription">
+        <argument>Display a list of all available migrations and their status.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.current_command" class="Doctrine\Migrations\Tools\Console\Command\CurrentCommand">
       <tag name="console.command" command="doctrine:migrations:current"/>
@@ -3864,6 +3931,9 @@
       <argument>doctrine:migrations:current</argument>
       <call method="setName">
         <argument>doctrine:migrations:current</argument>
+      </call>
+      <call method="setDescription">
+        <argument>Outputs the current version</argument>
       </call>
     </service>
     <service id="doctrine_migrations.dump_schema_command" class="Doctrine\Migrations\Tools\Console\Command\DumpSchemaCommand">
@@ -3874,6 +3944,9 @@
       <call method="setName">
         <argument>doctrine:migrations:dump-schema</argument>
       </call>
+      <call method="setDescription">
+        <argument>Dump the schema for your database to a migration.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.execute_command" class="Doctrine\Migrations\Tools\Console\Command\ExecuteCommand">
       <tag name="console.command" command="doctrine:migrations:execute"/>
@@ -3882,6 +3955,9 @@
       <argument>doctrine:migrations:execute</argument>
       <call method="setName">
         <argument>doctrine:migrations:execute</argument>
+      </call>
+      <call method="setDescription">
+        <argument>Execute one or more migration versions up or down manually.</argument>
       </call>
     </service>
     <service id="doctrine_migrations.generate_command" class="Doctrine\Migrations\Tools\Console\Command\GenerateCommand">
@@ -3892,6 +3968,9 @@
       <call method="setName">
         <argument>doctrine:migrations:generate</argument>
       </call>
+      <call method="setDescription">
+        <argument>Generate a blank migration class.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.latest_command" class="Doctrine\Migrations\Tools\Console\Command\LatestCommand">
       <tag name="console.command" command="doctrine:migrations:latest"/>
@@ -3900,6 +3979,9 @@
       <argument>doctrine:migrations:latest</argument>
       <call method="setName">
         <argument>doctrine:migrations:latest</argument>
+      </call>
+      <call method="setDescription">
+        <argument>Outputs the latest version</argument>
       </call>
     </service>
     <service id="doctrine_migrations.migrate_command" class="Doctrine\Migrations\Tools\Console\Command\MigrateCommand">
@@ -3910,6 +3992,9 @@
       <call method="setName">
         <argument>doctrine:migrations:migrate</argument>
       </call>
+      <call method="setDescription">
+        <argument>Execute a migration to a specified version or the latest available version.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.rollup_command" class="Doctrine\Migrations\Tools\Console\Command\RollupCommand">
       <tag name="console.command" command="doctrine:migrations:rollup"/>
@@ -3918,6 +4003,9 @@
       <argument>doctrine:migrations:rollup</argument>
       <call method="setName">
         <argument>doctrine:migrations:rollup</argument>
+      </call>
+      <call method="setDescription">
+        <argument>Rollup migrations by deleting all tracked versions and insert the one version that exists.</argument>
       </call>
     </service>
     <service id="doctrine_migrations.status_command" class="Doctrine\Migrations\Tools\Console\Command\StatusCommand">
@@ -3928,6 +4016,9 @@
       <call method="setName">
         <argument>doctrine:migrations:status</argument>
       </call>
+      <call method="setDescription">
+        <argument>View the status of a set of migrations.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.up_to_date_command" class="Doctrine\Migrations\Tools\Console\Command\UpToDateCommand">
       <tag name="console.command" command="doctrine:migrations:up-to-date"/>
@@ -3937,6 +4028,9 @@
       <call method="setName">
         <argument>doctrine:migrations:up-to-date</argument>
       </call>
+      <call method="setDescription">
+        <argument>Tells you if your schema is up-to-date.</argument>
+      </call>
     </service>
     <service id="doctrine_migrations.version_command" class="Doctrine\Migrations\Tools\Console\Command\VersionCommand">
       <tag name="console.command" command="doctrine:migrations:version"/>
@@ -3945,6 +4039,9 @@
       <argument>doctrine:migrations:version</argument>
       <call method="setName">
         <argument>doctrine:migrations:version</argument>
+      </call>
+      <call method="setDescription">
+        <argument>Manually add and delete migration versions from the version table.</argument>
       </call>
     </service>
     <service id="doctrine_migrations.schema_filter_listener" class="Doctrine\Bundle\MigrationsBundle\EventListener\SchemaFilterListener">
@@ -4477,6 +4574,7 @@
       <deprecated package="symfony/security-bundle" version="5.3">The "%service_id%" service is deprecated, use the new authenticator system instead.</deprecated>
     </service>
     <service id="debug.security.access.decision_manager" class="Symfony\Component\Security\Core\Authorization\TraceableAccessDecisionManager">
+      <tag name="container.decorator" id="security.access.decision_manager"/>
       <argument type="service" id="debug.security.access.decision_manager.inner"/>
     </service>
     <service id="debug.security.voter.vote_listener" class="Symfony\Bundle\SecurityBundle\EventListener\VoteListener">
@@ -4755,6 +4853,7 @@
     </service>
     <service id="debug.security.firewall.authenticator.main" class="Symfony\Component\Security\Http\Authenticator\Debug\TraceableAuthenticatorManagerListener">
       <tag name="kernel.reset" method="reset"/>
+      <tag name="container.decorator" id="security.firewall.authenticator.main"/>
       <argument type="service" id="debug.security.firewall.authenticator.main.inner"/>
     </service>
     <service id="security.listener.user_checker.main" class="Symfony\Component\Security\Http\EventListener\UserCheckerListener">
@@ -5006,41 +5105,49 @@
     </service>
     <service id="debug.argument_resolver.request_attribute" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="100"/>
+      <tag name="container.decorator" id="argument_resolver.request_attribute"/>
       <argument type="service" id="debug.argument_resolver.request_attribute.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver.request" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="50"/>
+      <tag name="container.decorator" id="argument_resolver.request"/>
       <argument type="service" id="debug.argument_resolver.request.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver.session" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="50"/>
+      <tag name="container.decorator" id="argument_resolver.session"/>
       <argument type="service" id="debug.argument_resolver.session.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.security.user_value_resolver" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="40"/>
+      <tag name="container.decorator" id="security.user_value_resolver"/>
       <argument type="service" id="debug.security.user_value_resolver.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver.service" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="-50"/>
+      <tag name="container.decorator" id="argument_resolver.service"/>
       <argument type="service" id="debug.argument_resolver.service.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver.default" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="-100"/>
+      <tag name="container.decorator" id="argument_resolver.default"/>
       <argument type="service" id="debug.argument_resolver.default.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver.variadic" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="-150"/>
+      <tag name="container.decorator" id="argument_resolver.variadic"/>
       <argument type="service" id="debug.argument_resolver.variadic.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
     <service id="debug.argument_resolver.not_tagged_controller" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver">
       <tag name="controller.argument_value_resolver" priority="-200"/>
+      <tag name="container.decorator" id="argument_resolver.not_tagged_controller"/>
       <argument type="service" id="debug.argument_resolver.not_tagged_controller.inner"/>
       <argument type="service" id="debug.stopwatch"/>
     </service>
@@ -5157,6 +5264,7 @@
       </argument>
     </service>
     <service id=".doctrine.orm.default_metadata_driver" class="Doctrine\Bundle\DoctrineBundle\Mapping\MappingDriver">
+      <tag name="container.decorator" id="doctrine.orm.default_metadata_driver"/>
       <argument type="service" id=".doctrine.orm.default_metadata_driver.inner"/>
       <argument type="service" id=".service_locator.KLVvNIq"/>
     </service>
@@ -5342,11 +5450,12 @@
         <argument key="kernel" type="service_closure" id="kernel"/>
       </argument>
     </service>
-    <service id=".service_locator.GVyCdgr" class="Symfony\Component\DependencyInjection\ServiceLocator">
+    <service id=".service_locator.XmPJruK" class="Symfony\Component\DependencyInjection\ServiceLocator">
       <tag name="container.service_locator"/>
       <argument type="collection">
         <argument key="initialized_session" type="service_closure" id=".session.do-not-use" on-invalid="ignore_uninitialized"/>
         <argument key="logger" type="service_closure" id="monolog.logger" on-invalid="ignore"/>
+        <argument key="request_stack" type="service_closure" id="request_stack" on-invalid="ignore"/>
         <argument key="session" type="service_closure" id=".session.do-not-use" on-invalid="ignore"/>
         <argument key="session_factory" type="service_closure" id="session.factory" on-invalid="ignore"/>
       </argument>
@@ -5386,7 +5495,8 @@
       <argument type="collection">
         <argument type="service" id="jms_serializer.metadata.yaml_driver"/>
         <argument type="service" id="jms_serializer.metadata.xml_driver"/>
-        <argument type="service" id="jms_serializer.metadata.annotation_driver"/>
+        <argument type="service" id="jms_serializer.metadata.annotation_or_attribute_driver"/>
+        <argument type="service" id="jms_serializer.metadata.null_driver"/>
       </argument>
     </service>
     <service id="jms_serializer.doctrine_object_constructor.inner" class="JMS\Serializer\Construction\UnserializeObjectConstructor"/>
@@ -5615,6 +5725,97 @@
       <argument>false</argument>
       <argument type="service_closure" id="console.command.secrets_encrypt_from_local"/>
     </service>
+    <service id=".doctrine_migrations.diff_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:diff</argument>
+      <argument type="collection"/>
+      <argument>Generate a migration by comparing your current database to your mapping information.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.diff_command"/>
+    </service>
+    <service id=".doctrine_migrations.sync_metadata_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:sync-metadata-storage</argument>
+      <argument type="collection"/>
+      <argument>Ensures that the metadata storage is at the latest version.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.sync_metadata_command"/>
+    </service>
+    <service id=".doctrine_migrations.versions_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:list</argument>
+      <argument type="collection"/>
+      <argument>Display a list of all available migrations and their status.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.versions_command"/>
+    </service>
+    <service id=".doctrine_migrations.current_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:current</argument>
+      <argument type="collection"/>
+      <argument>Outputs the current version</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.current_command"/>
+    </service>
+    <service id=".doctrine_migrations.dump_schema_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:dump-schema</argument>
+      <argument type="collection"/>
+      <argument>Dump the schema for your database to a migration.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.dump_schema_command"/>
+    </service>
+    <service id=".doctrine_migrations.execute_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:execute</argument>
+      <argument type="collection"/>
+      <argument>Execute one or more migration versions up or down manually.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.execute_command"/>
+    </service>
+    <service id=".doctrine_migrations.generate_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:generate</argument>
+      <argument type="collection"/>
+      <argument>Generate a blank migration class.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.generate_command"/>
+    </service>
+    <service id=".doctrine_migrations.latest_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:latest</argument>
+      <argument type="collection"/>
+      <argument>Outputs the latest version</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.latest_command"/>
+    </service>
+    <service id=".doctrine_migrations.migrate_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:migrate</argument>
+      <argument type="collection"/>
+      <argument>Execute a migration to a specified version or the latest available version.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.migrate_command"/>
+    </service>
+    <service id=".doctrine_migrations.rollup_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:rollup</argument>
+      <argument type="collection"/>
+      <argument>Rollup migrations by deleting all tracked versions and insert the one version that exists.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.rollup_command"/>
+    </service>
+    <service id=".doctrine_migrations.status_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:status</argument>
+      <argument type="collection"/>
+      <argument>View the status of a set of migrations.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.status_command"/>
+    </service>
+    <service id=".doctrine_migrations.up_to_date_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:up-to-date</argument>
+      <argument type="collection"/>
+      <argument>Tells you if your schema is up-to-date.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.up_to_date_command"/>
+    </service>
+    <service id=".doctrine_migrations.version_command.lazy" class="Symfony\Component\Console\Command\LazyCommand">
+      <argument>doctrine:migrations:version</argument>
+      <argument type="collection"/>
+      <argument>Manually add and delete migration versions from the version table.</argument>
+      <argument>false</argument>
+      <argument type="service_closure" id="doctrine_migrations.version_command"/>
+    </service>
     <service id=".security.command.debug_firewall.lazy" class="Symfony\Component\Console\Command\LazyCommand">
       <argument>debug:firewall</argument>
       <argument type="collection"/>
@@ -5638,7 +5839,7 @@
     </service>
     <service id="console.command_loader" class="Symfony\Component\Console\CommandLoader\ContainerCommandLoader" public="true">
       <tag name="container.no_preload"/>
-      <argument type="service" id=".service_locator.UYXxHXw"/>
+      <argument type="service" id=".service_locator.jmAqqLy"/>
       <argument type="collection">
         <argument key="app:admin:seed">App\Command\AdminUserSeedCommand</argument>
         <argument key="app:fiscal:load-test">App\Command\FiscalConcurrentLoadCommand</argument>
@@ -5706,7 +5907,7 @@
         <argument key="security:hash-password">security.command.user_password_hash</argument>
       </argument>
     </service>
-    <service id=".service_locator.UYXxHXw" class="Symfony\Component\DependencyInjection\ServiceLocator">
+    <service id=".service_locator.jmAqqLy" class="Symfony\Component\DependencyInjection\ServiceLocator">
       <tag name="container.service_locator"/>
       <argument type="collection">
         <argument key="App\Command\AdminUserSeedCommand" type="service_closure" id="App\Command\AdminUserSeedCommand"/>
@@ -5757,19 +5958,19 @@
         <argument key="doctrine.schema_update_command" type="service_closure" id="doctrine.schema_update_command"/>
         <argument key="doctrine.schema_validate_command" type="service_closure" id="doctrine.schema_validate_command"/>
         <argument key="doctrine.mapping_import_command" type="service_closure" id="doctrine.mapping_import_command"/>
-        <argument key="doctrine_migrations.diff_command" type="service_closure" id="doctrine_migrations.diff_command"/>
-        <argument key="doctrine_migrations.sync_metadata_command" type="service_closure" id="doctrine_migrations.sync_metadata_command"/>
-        <argument key="doctrine_migrations.versions_command" type="service_closure" id="doctrine_migrations.versions_command"/>
-        <argument key="doctrine_migrations.current_command" type="service_closure" id="doctrine_migrations.current_command"/>
-        <argument key="doctrine_migrations.dump_schema_command" type="service_closure" id="doctrine_migrations.dump_schema_command"/>
-        <argument key="doctrine_migrations.execute_command" type="service_closure" id="doctrine_migrations.execute_command"/>
-        <argument key="doctrine_migrations.generate_command" type="service_closure" id="doctrine_migrations.generate_command"/>
-        <argument key="doctrine_migrations.latest_command" type="service_closure" id="doctrine_migrations.latest_command"/>
-        <argument key="doctrine_migrations.migrate_command" type="service_closure" id="doctrine_migrations.migrate_command"/>
-        <argument key="doctrine_migrations.rollup_command" type="service_closure" id="doctrine_migrations.rollup_command"/>
-        <argument key="doctrine_migrations.status_command" type="service_closure" id="doctrine_migrations.status_command"/>
-        <argument key="doctrine_migrations.up_to_date_command" type="service_closure" id="doctrine_migrations.up_to_date_command"/>
-        <argument key="doctrine_migrations.version_command" type="service_closure" id="doctrine_migrations.version_command"/>
+        <argument key="doctrine_migrations.diff_command" type="service_closure" id=".doctrine_migrations.diff_command.lazy"/>
+        <argument key="doctrine_migrations.sync_metadata_command" type="service_closure" id=".doctrine_migrations.sync_metadata_command.lazy"/>
+        <argument key="doctrine_migrations.versions_command" type="service_closure" id=".doctrine_migrations.versions_command.lazy"/>
+        <argument key="doctrine_migrations.current_command" type="service_closure" id=".doctrine_migrations.current_command.lazy"/>
+        <argument key="doctrine_migrations.dump_schema_command" type="service_closure" id=".doctrine_migrations.dump_schema_command.lazy"/>
+        <argument key="doctrine_migrations.execute_command" type="service_closure" id=".doctrine_migrations.execute_command.lazy"/>
+        <argument key="doctrine_migrations.generate_command" type="service_closure" id=".doctrine_migrations.generate_command.lazy"/>
+        <argument key="doctrine_migrations.latest_command" type="service_closure" id=".doctrine_migrations.latest_command.lazy"/>
+        <argument key="doctrine_migrations.migrate_command" type="service_closure" id=".doctrine_migrations.migrate_command.lazy"/>
+        <argument key="doctrine_migrations.rollup_command" type="service_closure" id=".doctrine_migrations.rollup_command.lazy"/>
+        <argument key="doctrine_migrations.status_command" type="service_closure" id=".doctrine_migrations.status_command.lazy"/>
+        <argument key="doctrine_migrations.up_to_date_command" type="service_closure" id=".doctrine_migrations.up_to_date_command.lazy"/>
+        <argument key="doctrine_migrations.version_command" type="service_closure" id=".doctrine_migrations.version_command.lazy"/>
         <argument key="security.command.debug_firewall" type="service_closure" id=".security.command.debug_firewall.lazy"/>
         <argument key="security.command.user_password_encoder" type="service_closure" id=".security.command.user_password_encoder.lazy"/>
         <argument key="security.command.user_password_hash" type="service_closure" id=".security.command.user_password_hash.lazy"/>
@@ -5872,6 +6073,7 @@
     <service id="jms_serializer.instance.default.handler_registry" alias="jms_serializer.traceable_handler_registry"/>
     <service id="jms_serializer.instance.default.handler_registry.service_locator" alias="jms_serializer.handler_registry.service_locator"/>
     <service id="jms_serializer.instance.default.enum_handler" alias="jms_serializer.enum_handler"/>
+    <service id="jms_serializer.instance.default.union_handler" alias="jms_serializer.union_handler"/>
     <service id="jms_serializer.instance.default.array_collection_handler" alias="jms_serializer.array_collection_handler"/>
     <service id="jms_serializer.instance.default.constraint_violation_handler" alias="jms_serializer.constraint_violation_handler"/>
     <service id="jms_serializer.instance.default.datetime_handler" alias="jms_serializer.datetime_handler"/>
@@ -5882,10 +6084,12 @@
     <service id="jms_serializer.instance.default.metadata.file_locator" alias="jms_serializer.metadata.traceable_file_locator"/>
     <service id="jms_serializer.instance.default.metadata.yaml_driver" alias="jms_serializer.metadata.yaml_driver"/>
     <service id="jms_serializer.instance.default.metadata.xml_driver" alias="jms_serializer.metadata.xml_driver"/>
-    <service id="jms_serializer.instance.default.metadata.annotation_driver" alias="jms_serializer.metadata.annotation_driver"/>
+    <service id="jms_serializer.instance.default.metadata.annotation_or_attribute_driver" alias="jms_serializer.metadata.annotation_or_attribute_driver"/>
+    <service id="jms_serializer.instance.default.metadata.null_driver" alias="jms_serializer.metadata.null_driver"/>
     <service id="jms_serializer.instance.default.metadata_driver" alias="jms_serializer.metadata.typed_properties_driver"/>
     <service id="jms_serializer.instance.default.metadata.doctrine_type_driver" alias="jms_serializer.metadata.doctrine_type_driver"/>
     <service id="jms_serializer.instance.default.metadata.doctrine_phpcr_type_driver" alias="jms_serializer.metadata.doctrine_phpcr_type_driver"/>
+    <service id="jms_serializer.instance.default.metadata.default_value_property_driver" alias="jms_serializer.metadata.default_value_property_driver"/>
     <service id="jms_serializer.instance.default.metadata.typed_properties_driver" alias="jms_serializer.metadata.typed_properties_driver"/>
     <service id="jms_serializer.instance.default.metadata.enum_driver" alias="jms_serializer.metadata.enum_driver"/>
     <service id="jms_serializer.instance.default.metadata.doc_block_driver" alias="jms_serializer.metadata.doc_block_driver"/>
@@ -5924,7 +6128,6 @@
     <service id="jms_serializer.instance.default.traceable_metadata_factory" alias="jms_serializer.traceable_metadata_factory"/>
     <service id="jms_serializer.instance.default.traceable_handler_registry" alias="jms_serializer.traceable_handler_registry"/>
     <service id="jms_serializer.instance.default.metadata.traceable_file_locator" alias="jms_serializer.metadata.traceable_file_locator"/>
-    <service id="jms_serializer.instance.default.metadata.annotation_and_attributes_reader" alias="jms_serializer.metadata.annotation_and_attributes_reader"/>
     <service id="jms_serializer.instances.default" alias="jms_serializer.serializer" public="true"/>
     <service id="logger" alias="monolog.logger"/>
     <service id="Psr\Log\LoggerInterface" alias="monolog.logger"/>
@@ -6031,7 +6234,7 @@
     <service id=".service_locator.oRA7Ues" alias=".service_locator.kQ_5fti"/>
     <service id=".service_locator.vIrV5rh" alias=".service_locator.ws2C8pZ"/>
     <service id=".service_locator.FTI1L1r" alias=".service_locator.mx0UMmY"/>
-    <service id=".service_locator.L0rFhJm" alias=".service_locator.GVyCdgr"/>
+    <service id=".service_locator.sf85gDo" alias=".service_locator.XmPJruK"/>
     <service id=".service_locator.aa1PbBb" alias=".service_locator.nLgZj7R"/>
   </services>
 </container>

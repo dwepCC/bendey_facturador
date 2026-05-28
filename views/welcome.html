@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>bendey-api</title>
-    <meta name="description" content="bendey-api — API REST para facturación electrónica SUNAT">
+    <title>Facturador-SUNAT</title>
+    <meta name="description" content="Facturador-SUNAT — servicio de facturación electrónica">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -186,27 +186,27 @@
 
     <main class="page">
         <div class="content">
-            <h1 class="logo">bendey<span>-api</span></h1>
-            <p class="tagline">API REST para facturación electrónica SUNAT. Comprobantes, guías y más.</p>
+            <h1 class="logo">Facturador<span>-SUNAT</span></h1>
+            <p class="tagline">Plataforma interna de facturación electrónica. Ingrese con su cuenta para ver el monitoreo.</p>
 
             <div class="card">
-                <p class="card-title">Documentación</p>
-                <p class="card-desc">Explora y prueba los endpoints con la referencia interactiva de la API.</p>
-                <a href="http://petstore.swagger.io/?url=__SWAGGER_URL__" class="btn" target="_blank" rel="noopener">
+                <p class="card-title">Acceso</p>
+                <p class="card-desc">Use el acceso administrativo para entrar al panel de monitoreo fiscal.</p>
+                <a href="/login" class="btn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                        <path d="M10 17l5-5-5-5"/>
+                        <path d="M15 12H3"/>
                     </svg>
-                    Abrir API Reference
+                    Ingresar al panel
                 </a>
             </div>
 
             <div class="links">
-                <a href="/login">Dashboard fiscal SaaS</a>
-                <a href="/api/v1/empresas">GET /api/v1/empresas</a>
+                <a href="/login">Ir a inicio de sesión</a>
             </div>
 
-            <p class="version">bendey-api</p>
+            <p class="version">Facturador-SUNAT</p>
         </div>
     </main>
 </body>
