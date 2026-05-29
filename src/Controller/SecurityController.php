@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Util\FiscalUiAssets;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -45,6 +46,7 @@ class SecurityController extends AbstractController
 
         $user = htmlspecialchars($lastUsername, ENT_QUOTES);
         $token = htmlspecialchars($csrfToken, ENT_QUOTES);
+        $css = htmlspecialchars(FiscalUiAssets::stylesheetHref(), ENT_QUOTES);
 
         return <<<HTML
 <!DOCTYPE html>
@@ -53,7 +55,7 @@ class SecurityController extends AbstractController
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Acceso — Facturador fiscal</title>
-  <link rel="stylesheet" href="/css/fiscal-ui.css">
+  <link rel="stylesheet" href="{$css}">
 </head>
 <body class="fiscal-ui">
   <div class="auth-wrap">

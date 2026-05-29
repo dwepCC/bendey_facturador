@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Entity\AdminUser;
+use App\Util\FiscalUiAssets;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -64,6 +65,7 @@ class AccountController extends AbstractController
         $notice = $required
             ? '<p class="alert-warn">Debe cambiar la contraseña por defecto antes de continuar.</p>'
             : '';
+        $css = htmlspecialchars(FiscalUiAssets::stylesheetHref(), ENT_QUOTES);
 
         return <<<HTML
 <!DOCTYPE html>
@@ -72,7 +74,7 @@ class AccountController extends AbstractController
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Cambiar contraseña</title>
-  <link rel="stylesheet" href="/css/fiscal-ui.css">
+  <link rel="stylesheet" href="{$css}">
 </head>
 <body class="fiscal-ui">
   <div class="auth-wrap">
