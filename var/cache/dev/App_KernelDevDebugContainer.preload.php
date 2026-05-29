@@ -10,7 +10,7 @@ if (in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) {
 }
 
 require dirname(__DIR__, 3).''.\DIRECTORY_SEPARATOR.'vendor/autoload.php';
-(require __DIR__.'/App_KernelDevDebugContainer.php')->set(\ContainerB6HuHsX\App_KernelDevDebugContainer::class, null);
+(require __DIR__.'/App_KernelDevDebugContainer.php')->set(\ContainerGxT5Ds1\App_KernelDevDebugContainer::class, null);
 
 $classes = [];
 $classes[] = 'Symfony\Bundle\FrameworkBundle\FrameworkBundle';
@@ -33,6 +33,7 @@ $classes[] = 'Symfony\Component\HttpFoundation\Session\SessionInterface';
 $classes[] = 'Symfony\Bundle\FrameworkBundle\Session\DeprecatedSessionFactory';
 $classes[] = 'App\Controller\AccountController';
 $classes[] = 'App\Controller\FiscalDashboardController';
+$classes[] = 'App\Controller\FiscalEmpresasController';
 $classes[] = 'App\Controller\HomeController';
 $classes[] = 'App\Controller\SecurityController';
 $classes[] = 'App\Controller\v1\ConfigurationController';

@@ -10,6 +10,7 @@ return [
     [ // $staticRoutes
         '/change-password' => [[['_route' => 'admin_change_password', '_controller' => 'App\\Controller\\AccountController::changePassword'], null, ['GET' => 0, 'POST' => 1], null, false, false, null]],
         '/dashboard' => [[['_route' => 'fiscal_dashboard', '_controller' => 'App\\Controller\\FiscalDashboardController::index'], null, null, null, false, false, null]],
+        '/dashboard/empresas' => [[['_route' => 'fiscal_empresas', '_controller' => 'App\\Controller\\FiscalEmpresasController::index'], null, null, null, false, false, null]],
         '/' => [[['_route' => 'app_home_index', '_controller' => 'App\\Controller\\HomeController::index'], null, null, null, false, false, null]],
         '/swagger' => [[['_route' => 'app_home_swagger', '_controller' => 'App\\Controller\\HomeController::swagger'], null, null, null, false, false, null]],
         '/login' => [[['_route' => 'admin_login', '_controller' => 'App\\Controller\\SecurityController::login'], null, null, null, false, false, null]],
@@ -26,6 +27,7 @@ return [
         '/api/v1/fiscal/emit' => [[['_route' => 'app_v1_fiscal_emit', '_controller' => 'App\\Controller\\v1\\FiscalController::emit'], null, ['POST' => 0], null, false, false, null]],
         '/api/v1/fiscal/company-sync' => [[['_route' => 'app_v1_fiscal_companysync', '_controller' => 'App\\Controller\\v1\\FiscalController::companySync'], null, ['POST' => 0], null, false, false, null]],
         '/api/v1/fiscal/test-connection' => [[['_route' => 'app_v1_fiscal_testconnection', '_controller' => 'App\\Controller\\v1\\FiscalController::testConnection'], null, ['POST' => 0], null, false, false, null]],
+        '/api/v1/fiscal/companies' => [[['_route' => 'app_v1_fiscal_companies', '_controller' => 'App\\Controller\\v1\\FiscalController::companies'], null, ['GET' => 0], null, false, false, null]],
         '/api/v1/fiscal/stats' => [[['_route' => 'app_v1_fiscal_stats', '_controller' => 'App\\Controller\\v1\\FiscalController::stats'], null, ['GET' => 0], null, false, false, null]],
         '/api/v1/fiscal/documents' => [[['_route' => 'app_v1_fiscal_list', '_controller' => 'App\\Controller\\v1\\FiscalController::list'], null, ['GET' => 0], null, false, false, null]],
         '/api/v1/fiscal/health' => [[['_route' => 'app_v1_fiscaloperations_health', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::health'], null, ['GET' => 0], null, false, false, null]],

@@ -316,6 +316,9 @@
     <service id="App\Controller\FiscalDashboardController" class="App\Controller\FiscalDashboardController" shared="false" public="true" autowire="true" autoconfigure="true">
       <tag name="controller.service_arguments"/>
     </service>
+    <service id="App\Controller\FiscalEmpresasController" class="App\Controller\FiscalEmpresasController" shared="false" public="true" autowire="true" autoconfigure="true">
+      <tag name="controller.service_arguments"/>
+    </service>
     <service id="App\Controller\FiscalFilesController" class="App\Controller\FiscalFilesController" autowire="true" autoconfigure="true">
       <argument>E:\tukifac\tukifac_premium\facturador_lycet/var/fiscal_storage</argument>
     </service>
@@ -753,6 +756,7 @@
       <argument type="service" id="App\Service\FileDataReader"/>
       <argument type="service" id="Greenter\See"/>
     </service>
+    <service id="App\Util\FiscalUiAssets" class="App\Util\FiscalUiAssets" autowire="true" autoconfigure="true"/>
     <service id="Greenter\Report\Resolver\DefaultTemplateResolver" class="Greenter\Report\Resolver\DefaultTemplateResolver" autowire="true" autoconfigure="true"/>
     <service id="Greenter\Report\Render\QrRender" class="Greenter\Report\Render\QrRender" autowire="true" autoconfigure="true"/>
     <service id="Greenter\Report\XmlUtils" class="Greenter\Report\XmlUtils" public="true" autowire="true" autoconfigure="true"/>
@@ -5070,11 +5074,12 @@
         <argument key="factory" type="service_closure" id="App\Service\SeeFactory"/>
       </argument>
     </service>
-    <service id=".service_locator.8fPxXn6" class="Symfony\Component\DependencyInjection\ServiceLocator">
+    <service id=".service_locator.D.n7L98" class="Symfony\Component\DependencyInjection\ServiceLocator">
       <tag name="container.service_locator"/>
       <argument type="collection">
         <argument key="App\Controller\AccountController::changePassword" type="service_closure" id=".service_locator.e_iRZZt"/>
         <argument key="App\Controller\FiscalDashboardController::index" type="service_closure" id=".service_locator.XOxzSlt"/>
+        <argument key="App\Controller\FiscalEmpresasController::index" type="service_closure" id=".service_locator.XOxzSlt"/>
         <argument key="App\Controller\SecurityController::login" type="service_closure" id=".service_locator.cGTWg49"/>
         <argument key="App\Controller\v1\DespatchController::send" type="service_closure" id=".service_locator.kQ_5fti"/>
         <argument key="App\Controller\v1\DespatchController::status" type="service_closure" id=".service_locator.kQ_5fti"/>
@@ -5087,6 +5092,7 @@
         <argument key="kernel::registerContainerConfiguration" type="service_closure" id=".service_locator.xUrKPVU"/>
         <argument key="App\Controller\AccountController:changePassword" type="service_closure" id=".service_locator.e_iRZZt"/>
         <argument key="App\Controller\FiscalDashboardController:index" type="service_closure" id=".service_locator.XOxzSlt"/>
+        <argument key="App\Controller\FiscalEmpresasController:index" type="service_closure" id=".service_locator.XOxzSlt"/>
         <argument key="App\Controller\SecurityController:login" type="service_closure" id=".service_locator.cGTWg49"/>
         <argument key="App\Controller\v1\DespatchController:send" type="service_closure" id=".service_locator.kQ_5fti"/>
         <argument key="App\Controller\v1\DespatchController:status" type="service_closure" id=".service_locator.kQ_5fti"/>
@@ -5524,12 +5530,12 @@
       <argument type="service" id="security.token_storage"/>
     </service>
     <service id="debug.argument_resolver.service.inner" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\ServiceValueResolver">
-      <argument type="service" id=".service_locator.8fPxXn6"/>
+      <argument type="service" id=".service_locator.D.n7L98"/>
     </service>
     <service id="debug.argument_resolver.default.inner" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\DefaultValueResolver"/>
     <service id="debug.argument_resolver.variadic.inner" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\VariadicValueResolver"/>
     <service id="debug.argument_resolver.not_tagged_controller.inner" class="Symfony\Component\HttpKernel\Controller\ArgumentResolver\NotTaggedControllerValueResolver">
-      <argument type="service" id=".service_locator.8fPxXn6"/>
+      <argument type="service" id=".service_locator.D.n7L98"/>
     </service>
     <service id=".doctrine.orm.default_metadata_driver.inner" class="Doctrine\Persistence\Mapping\Driver\MappingDriverChain">
       <call method="addDriver">
@@ -6182,7 +6188,7 @@
     <service id="security.firewall.context_locator" alias=".service_locator.zJyh7qS"/>
     <service id="Symfony\Component\Security\Core\User\UserCheckerInterface" alias="security.user_checker"/>
     <service id="container.env_var_processors_locator" alias=".service_locator.gSv9zYw" public="true"/>
-    <service id="argument_resolver.controller_locator" alias=".service_locator.8fPxXn6"/>
+    <service id="argument_resolver.controller_locator" alias=".service_locator.D.n7L98"/>
     <service id="session" alias=".session.do-not-use" public="true">
       <deprecated package="symfony/framework-bundle" version="5.3">The "%alias_id%" service and "SessionInterface" alias are deprecated, use "$requestStack-&gt;getSession()" instead.</deprecated>
     </service>
@@ -6203,7 +6209,7 @@
     <service id=".service_locator.13qzyLC" alias="jms_serializer.metadata.service_locator"/>
     <service id=".service_locator.0GV1BZZ" alias=".service_locator.gSv9zYw"/>
     <service id=".service_locator.peNx3._" alias=".service_locator.e_iRZZt"/>
-    <service id=".service_locator.xXgYvx7" alias=".service_locator.8fPxXn6"/>
+    <service id=".service_locator.Ht9NhWA" alias=".service_locator.D.n7L98"/>
     <service id=".service_locator.4hi2aOY" alias=".service_locator.bBRwv06"/>
     <service id=".service_locator.0ghLsew" alias=".service_locator.mx0UMmY"/>
     <service id="event_dispatcher" alias="debug.event_dispatcher" public="true"/>

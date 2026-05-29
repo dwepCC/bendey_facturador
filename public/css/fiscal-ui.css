@@ -234,6 +234,35 @@ body.fiscal-ui {
 
 .dash-user a:hover { text-decoration: underline; }
 
+.dash-nav {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  margin-right: 0.5rem;
+  padding-right: 0.85rem;
+  border-right: 1px solid var(--border);
+}
+
+.dash-nav-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.dash-nav-link:hover { color: var(--teal); text-decoration: underline; }
+
+.dash-nav-link.is-active {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.dash-hint {
+  margin: -0.35rem 0 1rem;
+  padding: 0 0.25rem;
+}
+
 .dash-card {
   background: var(--surface);
   border: 1px solid var(--border);

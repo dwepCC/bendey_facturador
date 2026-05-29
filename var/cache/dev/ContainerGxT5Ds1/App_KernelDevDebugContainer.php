@@ -1,6 +1,6 @@
 <?php
 
-namespace ContainerWPDNdfW;
+namespace ContainerGxT5Ds1;
 
 use Symfony\Component\DependencyInjection\Argument\RewindableGenerator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -44,6 +44,7 @@ class App_KernelDevDebugContainer extends Container
             '.container.private.session' => 'get_Container_Private_SessionService',
             'App\\Controller\\AccountController' => 'getAccountControllerService',
             'App\\Controller\\FiscalDashboardController' => 'getFiscalDashboardControllerService',
+            'App\\Controller\\FiscalEmpresasController' => 'getFiscalEmpresasControllerService',
             'App\\Controller\\HomeController' => 'getHomeControllerService',
             'App\\Controller\\SecurityController' => 'getSecurityControllerService',
             'App\\Controller\\v1\\ConfigurationController' => 'getConfigurationControllerService',
@@ -391,6 +392,22 @@ class App_KernelDevDebugContainer extends Container
     }
 
     /**
+     * Gets the public 'App\Controller\FiscalEmpresasController' autowired service.
+     *
+     * @return \App\Controller\FiscalEmpresasController
+     */
+    protected function getFiscalEmpresasControllerService()
+    {
+        include_once \dirname(__DIR__, 4).''.\DIRECTORY_SEPARATOR.'src'.\DIRECTORY_SEPARATOR.'Controller'.\DIRECTORY_SEPARATOR.'FiscalEmpresasController.php';
+
+        $this->factories['App\\Controller\\FiscalEmpresasController'] = function () {
+            return new \App\Controller\FiscalEmpresasController();
+        };
+
+        return $this->factories['App\\Controller\\FiscalEmpresasController']();
+    }
+
+    /**
      * Gets the public 'App\Controller\HomeController' autowired service.
      *
      * @return \App\Controller\HomeController
@@ -502,7 +519,7 @@ class App_KernelDevDebugContainer extends Container
         include_once \dirname(__DIR__, 4).''.\DIRECTORY_SEPARATOR.'src'.\DIRECTORY_SEPARATOR.'Service'.\DIRECTORY_SEPARATOR.'Fiscal'.\DIRECTORY_SEPARATOR.'FiscalFileFetcher.php';
 
         $this->factories['App\\Controller\\v1\\FiscalController'] = function () {
-            $instance = new \App\Controller\v1\FiscalController(($this->privates['App\\Service\\Fiscal\\FiscalDocumentService'] ?? $this->getFiscalDocumentServiceService()), ($this->privates['App\\Repository\\FiscalDocumentRepository'] ?? $this->getFiscalDocumentRepositoryService()), ($this->privates['App\\Service\\Fiscal\\FiscalDocumentDetailService'] ?? $this->getFiscalDocumentDetailServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalQueueService'] ?? $this->getFiscalQueueServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalFileFetcher'] ?? ($this->privates['App\\Service\\Fiscal\\FiscalFileFetcher'] = new \App\Service\Fiscal\FiscalFileFetcher((\dirname(__DIR__, 4).'/var/fiscal_storage')))), ($this->privates['App\\Service\\Fiscal\\FiscalBulkActionService'] ?? $this->getFiscalBulkActionServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalCompanySyncService'] ?? $this->getFiscalCompanySyncServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalConnectionTestService'] ?? $this->getFiscalConnectionTestServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalDocumentPdfResolver'] ?? $this->getFiscalDocumentPdfResolverService()));
+            $instance = new \App\Controller\v1\FiscalController(($this->privates['App\\Service\\Fiscal\\FiscalDocumentService'] ?? $this->getFiscalDocumentServiceService()), ($this->privates['App\\Repository\\FiscalDocumentRepository'] ?? $this->getFiscalDocumentRepositoryService()), ($this->privates['App\\Service\\Fiscal\\FiscalDocumentDetailService'] ?? $this->getFiscalDocumentDetailServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalQueueService'] ?? $this->getFiscalQueueServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalFileFetcher'] ?? ($this->privates['App\\Service\\Fiscal\\FiscalFileFetcher'] = new \App\Service\Fiscal\FiscalFileFetcher((\dirname(__DIR__, 4).'/var/fiscal_storage')))), ($this->privates['App\\Service\\Fiscal\\FiscalBulkActionService'] ?? $this->getFiscalBulkActionServiceService()), ($this->privates['App\\Repository\\EmpresaRepository'] ?? $this->getEmpresaRepositoryService()), ($this->privates['App\\Service\\Fiscal\\FiscalCompanySyncService'] ?? $this->getFiscalCompanySyncServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalConnectionTestService'] ?? $this->getFiscalConnectionTestServiceService()), ($this->privates['App\\Service\\Fiscal\\FiscalDocumentPdfResolver'] ?? $this->getFiscalDocumentPdfResolverService()));
 
             $instance->setContainer(($this->privates['.service_locator.mx0UMmY.App\\Controller\\v1\\FiscalController'] ?? $this->getFiscalController2Service()));
 
@@ -2457,15 +2474,16 @@ class App_KernelDevDebugContainer extends Container
     }
 
     /**
-     * Gets the private '.service_locator.8fPxXn6' shared service.
+     * Gets the private '.service_locator.D.n7L98' shared service.
      *
      * @return \Symfony\Component\DependencyInjection\ServiceLocator
      */
-    protected function get_ServiceLocator_8fPxXn6Service()
+    protected function get_ServiceLocator_D_N7L98Service()
     {
-        return $this->privates['.service_locator.8fPxXn6'] = new \Symfony\Component\DependencyInjection\Argument\ServiceLocator($this->getService, [
+        return $this->privates['.service_locator.D.n7L98'] = new \Symfony\Component\DependencyInjection\Argument\ServiceLocator($this->getService, [
             'App\\Controller\\AccountController::changePassword' => ['privates', '.service_locator.e_iRZZt', 'get_ServiceLocator_EIRZZtService', false],
             'App\\Controller\\FiscalDashboardController::index' => ['privates', '.service_locator.XOxzSlt', 'get_ServiceLocator_XOxzSltService', false],
+            'App\\Controller\\FiscalEmpresasController::index' => ['privates', '.service_locator.XOxzSlt', 'get_ServiceLocator_XOxzSltService', false],
             'App\\Controller\\SecurityController::login' => ['privates', '.service_locator.cGTWg49', 'get_ServiceLocator_CGTWg49Service', false],
             'App\\Controller\\v1\\DespatchController::send' => ['privates', '.service_locator.kQ_5fti', 'get_ServiceLocator_KQ5ftiService', false],
             'App\\Controller\\v1\\DespatchController::status' => ['privates', '.service_locator.kQ_5fti', 'get_ServiceLocator_KQ5ftiService', false],
@@ -2478,6 +2496,7 @@ class App_KernelDevDebugContainer extends Container
             'kernel::registerContainerConfiguration' => ['privates', '.service_locator.xUrKPVU', 'get_ServiceLocator_XUrKPVUService', false],
             'App\\Controller\\AccountController:changePassword' => ['privates', '.service_locator.e_iRZZt', 'get_ServiceLocator_EIRZZtService', false],
             'App\\Controller\\FiscalDashboardController:index' => ['privates', '.service_locator.XOxzSlt', 'get_ServiceLocator_XOxzSltService', false],
+            'App\\Controller\\FiscalEmpresasController:index' => ['privates', '.service_locator.XOxzSlt', 'get_ServiceLocator_XOxzSltService', false],
             'App\\Controller\\SecurityController:login' => ['privates', '.service_locator.cGTWg49', 'get_ServiceLocator_CGTWg49Service', false],
             'App\\Controller\\v1\\DespatchController:send' => ['privates', '.service_locator.kQ_5fti', 'get_ServiceLocator_KQ5ftiService', false],
             'App\\Controller\\v1\\DespatchController:status' => ['privates', '.service_locator.kQ_5fti', 'get_ServiceLocator_KQ5ftiService', false],
@@ -2489,6 +2508,7 @@ class App_KernelDevDebugContainer extends Container
         ], [
             'App\\Controller\\AccountController::changePassword' => '?',
             'App\\Controller\\FiscalDashboardController::index' => '?',
+            'App\\Controller\\FiscalEmpresasController::index' => '?',
             'App\\Controller\\SecurityController::login' => '?',
             'App\\Controller\\v1\\DespatchController::send' => '?',
             'App\\Controller\\v1\\DespatchController::status' => '?',
@@ -2501,6 +2521,7 @@ class App_KernelDevDebugContainer extends Container
             'kernel::registerContainerConfiguration' => '?',
             'App\\Controller\\AccountController:changePassword' => '?',
             'App\\Controller\\FiscalDashboardController:index' => '?',
+            'App\\Controller\\FiscalEmpresasController:index' => '?',
             'App\\Controller\\SecurityController:login' => '?',
             'App\\Controller\\v1\\DespatchController:send' => '?',
             'App\\Controller\\v1\\DespatchController:status' => '?',
@@ -4060,7 +4081,7 @@ class App_KernelDevDebugContainer extends Container
         include_once \dirname(__DIR__, 4).''.\DIRECTORY_SEPARATOR.'vendor'.\DIRECTORY_SEPARATOR.'symfony'.\DIRECTORY_SEPARATOR.'http-kernel'.\DIRECTORY_SEPARATOR.'Controller'.\DIRECTORY_SEPARATOR.'ArgumentResolver'.\DIRECTORY_SEPARATOR.'TraceableValueResolver.php';
         include_once \dirname(__DIR__, 4).''.\DIRECTORY_SEPARATOR.'vendor'.\DIRECTORY_SEPARATOR.'symfony'.\DIRECTORY_SEPARATOR.'http-kernel'.\DIRECTORY_SEPARATOR.'Controller'.\DIRECTORY_SEPARATOR.'ArgumentResolver'.\DIRECTORY_SEPARATOR.'NotTaggedControllerValueResolver.php';
 
-        return $this->privates['debug.argument_resolver.not_tagged_controller'] = new \Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver(new \Symfony\Component\HttpKernel\Controller\ArgumentResolver\NotTaggedControllerValueResolver(($this->privates['.service_locator.8fPxXn6'] ?? $this->get_ServiceLocator_8fPxXn6Service())), ($this->privates['debug.stopwatch'] ?? ($this->privates['debug.stopwatch'] = new \Symfony\Component\Stopwatch\Stopwatch(true))));
+        return $this->privates['debug.argument_resolver.not_tagged_controller'] = new \Symfony\Component\HttpKernel\Controller\ArgumentResolver\TraceableValueResolver(new \Symfony\Component\HttpKernel\Controller\ArgumentResolver\NotTaggedControllerValueResolver(($this->privates['.service_locator.D.n7L98'] ?? $this->get_ServiceLocator_D_N7L98Service())), ($this->privates['debug.stopwatch'] ?? ($this->privates['debug.stopwatch'] = new \Symfony\Component\Stopwatch\Stopwatch(true))));
     }
 
     /**
@@ -4102,7 +4123,7 @@ class App_KernelDevDebugContainer extends Container
         include_once \dirname(__DIR__, 4).''.\DIRECTORY_SEPARATOR.'vendor'.\DIRECTORY_SEPARATOR.'symfony'.\DIRECTORY_SEPARATOR.'http-kernel'.\DIRECTORY_SEPARATOR.'Controller'.\DIRECTORY_SEPARATOR.'ArgumentResolver'.\DIRECTORY_SEPARATOR.'TraceableValueResolver.php';
         include_once \dirname(__DIR__, 4).''.\DIRECTORY_SEPARATOR.'vendor'.\DIRECTORY_SEPARATOR.'symfony'.\DIRECTORY_SEPARATOR.'http-kernel'.\DIRECTORY_SEPARATOR.'Controller'.\DIRECTORY_SEPARATOR.'ArgumentResolver'.\DIRECTORY_SEPARATOR.'ServiceValueResolver.php';
 
-        $a = ($this->privates['.service_locator.8fPxXn6'] ?? $this->get_ServiceLocator_8fPxXn6Service());
+        $a = ($this->privates['.service_locator.D.n7L98'] ?? $this->get_ServiceLocator_D_N7L98Service());
 
         if (isset($this->privates['debug.argument_resolver.service'])) {
             return $this->privates['debug.argument_resolver.service'];

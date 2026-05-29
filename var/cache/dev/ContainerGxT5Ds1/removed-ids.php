@@ -1,6 +1,6 @@
 <?php
 
-namespace ContainerWPDNdfW;
+namespace ContainerGxT5Ds1;
 
 return [
     '.1_ServiceLocator~8nftFpz' => true,
@@ -135,8 +135,9 @@ return [
     '.service_locator.0ghLsew' => true,
     '.service_locator.13qzyLC' => true,
     '.service_locator.4hi2aOY' => true,
-    '.service_locator.8fPxXn6' => true,
+    '.service_locator.D.n7L98' => true,
     '.service_locator.FTI1L1r' => true,
+    '.service_locator.Ht9NhWA' => true,
     '.service_locator.KLVvNIq' => true,
     '.service_locator.LcVn9Hr' => true,
     '.service_locator.QF76KD.' => true,
@@ -186,7 +187,6 @@ return [
     '.service_locator.wTXp38n' => true,
     '.service_locator.ws2C8pZ' => true,
     '.service_locator.xUrKPVU' => true,
-    '.service_locator.xXgYvx7' => true,
     '.service_locator.zJyh7qS' => true,
     '.session.deprecated' => true,
     '.session.do-not-use' => true,
@@ -262,6 +262,7 @@ return [
     'App\\Service\\Fiscal\\Storage\\StorageDriverInterface' => true,
     'App\\Service\\HtmlReportDecorator' => true,
     'App\\Service\\RequestParserInterface' => true,
+    'App\\Util\\FiscalUiAssets' => true,
     'Doctrine\\Bundle\\DoctrineBundle\\Controller\\ProfilerController' => true,
     'Doctrine\\Bundle\\DoctrineBundle\\Dbal\\ManagerRegistryAwareConnectionProvider' => true,
     'Doctrine\\Common\\Annotations\\Reader' => true,

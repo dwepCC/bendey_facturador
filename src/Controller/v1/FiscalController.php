@@ -134,6 +134,31 @@ class FiscalController extends AbstractController
     }
 
     /**
+     * Listado paginado de empresas (panel admin).
+     *
+     * @Route("/companies", methods={"GET"})
+     */
+    public function companies(Request $request): JsonResponse
+    {
+        $filters = $this->parseCompanyFilters($request);
+        $limit = min(100, max(1, (int) $request->query->get('limit', 25)));
+        $offset = max(0, (int) $request->query->get('offset', 0));
+        $includeTotal = filter_var($request->query->get('include_total', true), FILTER_VALIDATE_BOOLEAN);
+
+        $rows = $this->empresaRepo->findForAdminList($filters, $limit, $offset);
+        $response = [
+            'items' => array_map([$this, 'serializeCompanyAdmin'], $rows),
+            'offset' => $offset,
+            'limit' => $limit,
+        ];
+        if ($includeTotal) {
+            $response['total'] = $this->empresaRepo->countForAdminList($filters);
+        }
+
+        return new JsonResponse($response);
+    }
+
+    /**
      * @Route("/stats", methods={"GET"})
      */
     public function stats(Request $request): JsonResponse
@@ -499,6 +524,67 @@ class FiscalController extends AbstractController
         }
 
         return (string) $v;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function parseCompanyFilters(Request $request): array
+    {
+        $filters = [
+            'ruc' => $this->q($request, 'ruc'),
+            'tenant_slug' => $this->q($request, 'tenant_slug'),
+            'send_mode' => $this->q($request, 'send_mode'),
+            'connection_status' => $this->q($request, 'connection_status'),
+            'q' => $this->q($request, 'q'),
+            'from' => $this->parseDateFilter($request->query->get('from'), false),
+            'to' => $this->parseDateFilter($request->query->get('to'), true),
+        ];
+        if ($request->query->has('enabled')) {
+            $filters['enabled'] = filter_var($request->query->get('enabled'), FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return $filters;
+    }
+
+    private function parseDateFilter(mixed $value, bool $endOfDay): ?\DateTimeImmutable
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        $dt = new \DateTimeImmutable((string) $value);
+        if ($endOfDay && !str_contains((string) $value, 'T') && !str_contains((string) $value, ' ')) {
+            $dt = $dt->setTime(23, 59, 59);
+        }
+
+        return $dt;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeCompanyAdmin(Empresa $empresa): array
+    {
+        $sendMode = $empresa->getSendMode();
+        $isPse = $sendMode === 'pse';
+
+        return [
+            'ruc' => $empresa->getRuc(),
+            'tenant_id' => $empresa->getTenantId(),
+            'tenant_slug' => $empresa->getTenantSlug(),
+            'ambiente' => $empresa->getAmbiente(),
+            'send_mode' => $sendMode,
+            'send_mode_label' => $isPse ? 'PSE' : 'SUNAT directo',
+            'provider' => $empresa->getProvider(),
+            'connection_status' => $empresa->getConnectionStatus(),
+            'connection_error' => $empresa->getConnectionError(),
+            'last_connection_check' => $empresa->getLastConnectionCheck()
+                ? $empresa->getLastConnectionCheck()->format(DATE_ATOM) : null,
+            'enabled' => $empresa->isEnabled(),
+            'sol_user' => $empresa->getSolUser(),
+            'has_certificate' => $empresa->getCertificate() !== null && $empresa->getCertificate() !== '',
+            'pse_configured' => $isPse && $empresa->resolvePseBaseUrl() !== '',
+        ];
     }
 
     /**

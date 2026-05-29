@@ -5,6 +5,7 @@
 return [
     'admin_change_password' => [[], ['_controller' => 'App\\Controller\\AccountController::changePassword'], [], [['text', '/change-password']], [], [], []],
     'fiscal_dashboard' => [[], ['_controller' => 'App\\Controller\\FiscalDashboardController::index'], [], [['text', '/dashboard']], [], [], []],
+    'fiscal_empresas' => [[], ['_controller' => 'App\\Controller\\FiscalEmpresasController::index'], [], [['text', '/dashboard/empresas']], [], [], []],
     'app_fiscalfiles_serve' => [['path'], ['_controller' => 'App\\Controller\\FiscalFilesController::serve'], ['path' => '.+'], [['variable', '/', '.+', 'path', true], ['text', '/fiscal-files']], [], [], []],
     'app_home_index' => [[], ['_controller' => 'App\\Controller\\HomeController::index'], [], [['text', '/']], [], [], []],
     'app_home_swagger' => [[], ['_controller' => 'App\\Controller\\HomeController::swagger'], [], [['text', '/swagger']], [], [], []],
@@ -23,6 +24,7 @@ return [
     'app_v1_fiscal_emit' => [[], ['_controller' => 'App\\Controller\\v1\\FiscalController::emit'], [], [['text', '/api/v1/fiscal/emit']], [], [], []],
     'app_v1_fiscal_companysync' => [[], ['_controller' => 'App\\Controller\\v1\\FiscalController::companySync'], [], [['text', '/api/v1/fiscal/company-sync']], [], [], []],
     'app_v1_fiscal_testconnection' => [[], ['_controller' => 'App\\Controller\\v1\\FiscalController::testConnection'], [], [['text', '/api/v1/fiscal/test-connection']], [], [], []],
+    'app_v1_fiscal_companies' => [[], ['_controller' => 'App\\Controller\\v1\\FiscalController::companies'], [], [['text', '/api/v1/fiscal/companies']], [], [], []],
     'app_v1_fiscal_stats' => [[], ['_controller' => 'App\\Controller\\v1\\FiscalController::stats'], [], [['text', '/api/v1/fiscal/stats']], [], [], []],
     'app_v1_fiscal_list' => [[], ['_controller' => 'App\\Controller\\v1\\FiscalController::list'], [], [['text', '/api/v1/fiscal/documents']], [], [], []],
     'app_v1_fiscal_bulk' => [['action'], ['_controller' => 'App\\Controller\\v1\\FiscalController::bulk'], ['action' => 'send|retry|force|email|poll'], [['variable', '/', 'send|retry|force|email|poll', 'action', true], ['text', '/api/v1/fiscal/documents/bulk']], [], [], []],
