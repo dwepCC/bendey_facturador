@@ -1,4 +1,0 @@
-# Override local opcional para docker compose (dev).
-# El stack principal está en docker-compose.yml
-
-services: {}

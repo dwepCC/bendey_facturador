@@ -9,7 +9,6 @@ var/log/*
 var/data/*
 data/*
 !data/.gitkeep
-.env
 .env.local
 .env.*.local
 docker-compose.override.yml

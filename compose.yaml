@@ -1,5 +1,0 @@
-# Desarrollo local con Symfony Flex (sin Docker).
-# Para Docker usa: docker compose up --build
-# Para producción VPS usa: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-
-services: {}
