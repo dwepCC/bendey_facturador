@@ -61,6 +61,7 @@ services:
         condition: service_healthy
     networks:
       - facturador
+      - proxy
 
   worker:
     build:
@@ -89,6 +90,7 @@ services:
         condition: service_healthy
     networks:
       - facturador
+      - proxy
 
   phpmyadmin:
     image: phpmyadmin:5-apache
@@ -111,6 +113,9 @@ services:
 networks:
   facturador:
     driver: bridge
+  
+  proxy:
+    external: true
 
 volumes:
   mysql_data:
