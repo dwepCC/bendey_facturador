@@ -74,7 +74,7 @@ services:
       REDIS_URL: redis://redis:6379
       WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
     command: ["php", "bin/console", "app:fiscal:worker"]
-    healthcheck::
+    healthcheck:
       disable: true
     volumes:
       - ./.env.prod:/var/www/html/.env:ro
