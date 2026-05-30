@@ -51,7 +51,7 @@ services:
     ports:
       - "127.0.0.1:8000:80"
     volumes:
-      - ./.env.prod:/var/www/html/.env.prod:ro
+      - ./.env.prod:/var/www/html/.env:ro
       - app_data:/var/www/html/data
       - fiscal_storage:/var/www/html/var/fiscal_storage
     depends_on:
@@ -74,6 +74,8 @@ services:
       REDIS_URL: redis://redis:6379
       WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
     command: ["php", "bin/console", "app:fiscal:worker"]
+    healthcheck::
+      disable: true
     volumes:
       - ./.env.prod:/var/www/html/.env:ro
       - app_data:/var/www/html/data
