@@ -1,0 +1,78 @@
+# Desarrollo local con Docker — copia .env.prod.example a .env.prod y ajusta valores
+
+services:
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-bendey_facturador}
+      MYSQL_USER: ${MYSQL_USER:-facturador}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-facturador}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-prootsecret"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: 1
+      DATABASE_URL: mysql://${MYSQL_USER:-facturador}:${MYSQL_PASSWORD:-facturador}@mysql:3306/${MYSQL_DATABASE:-bendey_facturador}?serverVersion=8.0&charset=utf8mb4
+      REDIS_URL: redis://redis:6379
+      WKHTMLTOPDF_PATH: /usr/bin/wkhtmltopdf
+      RUN_ADMIN_SEED: 1
+    ports:
+      - "8000:80"
+    volumes:
+      - ./data:/var/www/html/data
+      - ./var/fiscal_storage:/var/www/html/var/fiscal_storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env.prod
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-facturador}:${MYSQL_PASSWORD:-facturador}@mysql:3306/${MYSQL_DATABASE:-bendey_facturador}?serverVersion=8.0&charset=utf8mb4
+      REDIS_URL: redis://redis:6379
+    command: ["php", "bin/console", "app:fiscal:worker"]
+    volumes:
+      - ./data:/var/www/html/data
+      - ./var/fiscal_storage:/var/www/html/var/fiscal_storage
+    depends_on:
+      - app
+      - redis
+
+  phpmyadmin:
+    image: phpmyadmin:5-apache
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootsecret}
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:

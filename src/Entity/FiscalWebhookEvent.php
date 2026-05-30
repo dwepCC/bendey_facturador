@@ -4,40 +4,37 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\FiscalWebhookEventRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass="App\Repository\FiscalWebhookEventRepository")
- * @ORM\Table(name="fiscal_webhook_events")
- */
+#[ORM\Entity(repositoryClass: FiscalWebhookEventRepository::class)]
+#[ORM\Table(name: 'fiscal_webhook_events')]
 class FiscalWebhookEvent
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="string", length=128, unique=true) */
+    #[ORM\Column(type: 'string', length: 128, unique: true)]
     private string $eventKey;
 
-    /** @ORM\Column(type="string", length=36) */
+    #[ORM\Column(type: 'string', length: 36)]
     private string $documentUuid;
 
-    /** @ORM\Column(type="string", length=64) */
+    #[ORM\Column(type: 'string', length: 64)]
     private string $payloadHash;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $httpStatus = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $responseBody = null;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $deliveredAt = null;
 
-    /** @ORM\Column(type="datetime") */
+    #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
     public function __construct()

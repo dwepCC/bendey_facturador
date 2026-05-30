@@ -12,13 +12,9 @@ use App\Service\DocumentRequestInterface;
 use Greenter\Model\Retention\Retention;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Class RetentionController.
- *
- * @Route("/api/v1/retention")
- */
+#[Route('/api/v1/retention')]
 class RetentionController extends AbstractController
 {
     /**
@@ -36,30 +32,27 @@ class RetentionController extends AbstractController
     }
 
     /**
-     * @Route("/send", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/send', methods: ['POST'])]
     public function send(): Response
     {
         return $this->document->send(Retention::class);
     }
 
     /**
-     * @Route("/xml", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/xml', methods: ['POST'])]
     public function xml(): Response
     {
         return $this->document->xml(Retention::class);
     }
 
     /**
-     * @Route("/pdf", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/pdf', methods: ['POST'])]
     public function pdf(): Response
     {
         return $this->document->pdf(Retention::class);

@@ -7,17 +7,15 @@ namespace App\Controller;
 use App\Util\FiscalUiAssets;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Security\Core\Security;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * Listado de empresas registradas (panel fiscal admin).
  */
 class FiscalEmpresasController
 {
-    /**
-     * @Route("/dashboard/empresas", name="fiscal_empresas")
-     */
+    #[Route('/dashboard/empresas', name: 'fiscal_empresas')]
     public function index(Request $request, Security $security): Response
     {
         $apiBase = $request->getSchemeAndHttpHost() . $request->getBasePath() . '/api/v1/fiscal';

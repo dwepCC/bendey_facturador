@@ -10,6 +10,7 @@ use App\Service\Fiscal\FiscalQueueService;
 use App\Service\Fiscal\FiscalStatusPollProcessor;
 use App\Service\Fiscal\FiscalWebhookSyncProcessor;
 use App\Service\Fiscal\Observability\FiscalAuditService;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -18,10 +19,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * Workers Redis fiscales (escalar N instancias).
  */
+#[AsCommand(name: 'app:fiscal:worker')]
 class FiscalWorkerCommand extends Command
 {
-    protected static $defaultName = 'app:fiscal:worker';
-
     private FiscalQueueService $queue;
     private FiscalEmitProcessor $emitProcessor;
     private FiscalEmailProcessor $emailProcessor;

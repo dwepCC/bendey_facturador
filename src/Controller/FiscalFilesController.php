@@ -8,13 +8,12 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Sirve archivos fiscales almacenados localmente.
- *
- * @Route("/fiscal-files")
  */
+#[Route('/fiscal-files')]
 class FiscalFilesController
 {
     private string $storagePath;
@@ -24,9 +23,7 @@ class FiscalFilesController
         $this->storagePath = rtrim($storagePath, '/\\');
     }
 
-    /**
-     * @Route("/{path}", requirements={"path"=".+"}, methods={"GET"})
-     */
+    #[Route('/{path}', requirements: ['path' => '.+'], methods: ['GET'])]
     public function serve(string $path): Response
     {
         $path = str_replace(['..', '\\'], ['', '/'], $path);

@@ -7,15 +7,13 @@ namespace App\Controller;
 use App\Util\FiscalUiAssets;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 class SecurityController extends AbstractController
 {
-    /**
-     * @Route("/login", name="admin_login")
-     */
+    #[Route('/login', name: 'admin_login')]
     public function login(AuthenticationUtils $authenticationUtils, CsrfTokenManagerInterface $csrfTokenManager): Response
     {
         if ($this->getUser()) {
@@ -29,9 +27,7 @@ class SecurityController extends AbstractController
         ), 200, ['Content-Type' => 'text/html; charset=utf-8']);
     }
 
-    /**
-     * @Route("/logout", name="admin_logout")
-     */
+    #[Route('/logout', name: 'admin_logout')]
     public function logout(): void
     {
         throw new \LogicException('Logout gestionado por Symfony Security.');

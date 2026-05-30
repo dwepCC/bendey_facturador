@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\FiscalAuditLogRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass="App\Repository\FiscalAuditLogRepository")
- * @ORM\Table(name="fiscal_audit_logs")
- */
+#[ORM\Entity(repositoryClass: FiscalAuditLogRepository::class)]
+#[ORM\Table(name: 'fiscal_audit_logs')]
 class FiscalAuditLog
 {
     public const STATUS_QUEUED = 'queued';
@@ -19,85 +18,87 @@ class FiscalAuditLog
     public const STATUS_RETRYING = 'retrying';
     public const STATUS_CANCELLED = 'cancelled';
 
-    /** @ORM\Id @ORM\GeneratedValue @ORM\Column(type="bigint") */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'bigint')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $tenantId = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $tenantSlug = null;
 
-    /** @ORM\Column(type="string", length=11, nullable=true) */
+    #[ORM\Column(type: 'string', length: 11, nullable: true)]
     private ?string $ruc = null;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $companyId = null;
 
-    /** @ORM\Column(type="string", length=36, nullable=true) */
+    #[ORM\Column(type: 'string', length: 36, nullable: true)]
     private ?string $documentUuid = null;
 
-    /** @ORM\Column(type="string", length=10, nullable=true) */
+    #[ORM\Column(type: 'string', length: 10, nullable: true)]
     private ?string $documentType = null;
 
-    /** @ORM\Column(type="string", length=10, nullable=true) */
+    #[ORM\Column(type: 'string', length: 10, nullable: true)]
     private ?string $series = null;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $number = null;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $saleId = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $externalId = null;
 
-    /** @ORM\Column(type="string", length=30, nullable=true) */
+    #[ORM\Column(type: 'string', length: 30, nullable: true)]
     private ?string $sendMode = null;
 
-    /** @ORM\Column(type="string", length=50, nullable=true) */
+    #[ORM\Column(type: 'string', length: 50, nullable: true)]
     private ?string $provider = null;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $connectionType = null;
 
-    /** @ORM\Column(type="string", length=50) */
+    #[ORM\Column(type: 'string', length: 50)]
     private string $eventType;
 
-    /** @ORM\Column(type="string", length=30) */
+    #[ORM\Column(type: 'string', length: 30)]
     private string $status;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $attempt = null;
 
-    /** @ORM\Column(type="string", length=36, nullable=true) */
+    #[ORM\Column(type: 'string', length: 36, nullable: true)]
     private ?string $requestId = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $queueJobId = null;
 
-    /** @ORM\Column(type="string", length=50, nullable=true) */
+    #[ORM\Column(type: 'string', length: 50, nullable: true)]
     private ?string $errorCode = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $errorMessage = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $errorStack = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $metadataJson = null;
 
-    /** @ORM\Column(type="datetime_immutable", nullable=true) */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $startedAt = null;
 
-    /** @ORM\Column(type="datetime_immutable", nullable=true) */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $finishedAt = null;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $durationMs = null;
 
-    /** @ORM\Column(type="datetime_immutable") */
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
     public function __construct()

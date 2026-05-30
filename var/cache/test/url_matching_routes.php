@@ -8,8 +8,13 @@
 return [
     false, // $matchHost
     [ // $staticRoutes
+        '/change-password' => [[['_route' => 'admin_change_password', '_controller' => 'App\\Controller\\AccountController::changePassword'], null, ['GET' => 0, 'POST' => 1], null, false, false, null]],
+        '/dashboard' => [[['_route' => 'fiscal_dashboard', '_controller' => 'App\\Controller\\FiscalDashboardController::index'], null, null, null, false, false, null]],
+        '/dashboard/empresas' => [[['_route' => 'fiscal_empresas', '_controller' => 'App\\Controller\\FiscalEmpresasController::index'], null, null, null, false, false, null]],
         '/' => [[['_route' => 'app_home_index', '_controller' => 'App\\Controller\\HomeController::index'], null, null, null, false, false, null]],
         '/swagger' => [[['_route' => 'app_home_swagger', '_controller' => 'App\\Controller\\HomeController::swagger'], null, null, null, false, false, null]],
+        '/login' => [[['_route' => 'admin_login', '_controller' => 'App\\Controller\\SecurityController::login'], null, null, null, false, false, null]],
+        '/logout' => [[['_route' => 'admin_logout', '_controller' => 'App\\Controller\\SecurityController::logout'], null, null, null, false, false, null]],
         '/api/v1/configuration' => [[['_route' => 'app_v1_configuration_config', '_controller' => 'App\\Controller\\v1\\ConfigurationController::config'], null, ['POST' => 0], null, true, false, null]],
         '/api/v1/despatch/send' => [[['_route' => 'app_v1_despatch_send', '_controller' => 'App\\Controller\\v1\\DespatchController::send'], null, ['POST' => 0], null, false, false, null]],
         '/api/v1/despatch/xml' => [[['_route' => 'app_v1_despatch_xml', '_controller' => 'App\\Controller\\v1\\DespatchController::xml'], null, ['POST' => 0], null, false, false, null]],
@@ -19,6 +24,17 @@ return [
             [['_route' => 'app_v1_empresas_list', '_controller' => 'App\\Controller\\v1\\EmpresasController::list'], null, ['GET' => 0], null, false, false, null],
             [['_route' => 'app_v1_empresas_createorupdate', '_controller' => 'App\\Controller\\v1\\EmpresasController::createOrUpdate'], null, ['POST' => 0], null, false, false, null],
         ],
+        '/api/v1/fiscal/emit' => [[['_route' => 'app_v1_fiscal_emit', '_controller' => 'App\\Controller\\v1\\FiscalController::emit'], null, ['POST' => 0], null, false, false, null]],
+        '/api/v1/fiscal/company-sync' => [[['_route' => 'app_v1_fiscal_companysync', '_controller' => 'App\\Controller\\v1\\FiscalController::companySync'], null, ['POST' => 0], null, false, false, null]],
+        '/api/v1/fiscal/test-connection' => [[['_route' => 'app_v1_fiscal_testconnection', '_controller' => 'App\\Controller\\v1\\FiscalController::testConnection'], null, ['POST' => 0], null, false, false, null]],
+        '/api/v1/fiscal/companies' => [[['_route' => 'app_v1_fiscal_companies', '_controller' => 'App\\Controller\\v1\\FiscalController::companies'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/stats' => [[['_route' => 'app_v1_fiscal_stats', '_controller' => 'App\\Controller\\v1\\FiscalController::stats'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/documents' => [[['_route' => 'app_v1_fiscal_list', '_controller' => 'App\\Controller\\v1\\FiscalController::list'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/health' => [[['_route' => 'app_v1_fiscaloperations_health', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::health'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/operations/summary' => [[['_route' => 'app_v1_fiscaloperations_summary', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::summary'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/operations/tenants' => [[['_route' => 'app_v1_fiscaloperations_tenants', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::tenants'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/operations/queue' => [[['_route' => 'app_v1_fiscaloperations_queue', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::queue'], null, ['GET' => 0], null, false, false, null]],
+        '/api/v1/fiscal/alerts' => [[['_route' => 'app_v1_fiscaloperations_alertslist', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::alertsList'], null, ['GET' => 0], null, false, false, null]],
         '/api/v1/invoice/send' => [[['_route' => 'app_v1_invoice_send', '_controller' => 'App\\Controller\\v1\\InvoiceController::send'], null, ['POST' => 0], null, false, false, null]],
         '/api/v1/invoice/xml' => [[['_route' => 'app_v1_invoice_xml', '_controller' => 'App\\Controller\\v1\\InvoiceController::xml'], null, ['POST' => 0], null, false, false, null]],
         '/api/v1/invoice/pdf' => [[['_route' => 'app_v1_invoice_pdf', '_controller' => 'App\\Controller\\v1\\InvoiceController::pdf'], null, ['POST' => 0], null, false, false, null]],
@@ -48,16 +64,52 @@ return [
     ],
     [ // $regexpList
         0 => '{^(?'
-                .'|/api/v1/empresas/(\\d{11})(?'
-                    .'|(*:35)'
-                    .'|/ambiente(*:51)'
+                .'|/fiscal\\-files/(.+)(*:26)'
+                .'|/api/v1/(?'
+                    .'|empresas/(\\d{11})(?'
+                        .'|(*:64)'
+                        .'|/(?'
+                            .'|status(*:81)'
+                            .'|ambiente(*:96)'
+                        .')'
+                    .')'
+                    .'|fiscal/documents/(?'
+                        .'|bulk/(send|retry|force|email|poll)(*:159)'
+                        .'|([^/]++)(?'
+                            .'|(*:178)'
+                            .'|/(?'
+                                .'|send(*:194)'
+                                .'|retry(*:207)'
+                                .'|force(*:220)'
+                                .'|email(*:233)'
+                                .'|poll(*:245)'
+                                .'|generate\\-pdf(*:266)'
+                                .'|download/(xml|signed_xml|cdr|pdf|unsigned_xml)(*:320)'
+                                .'|audit\\-timeline(*:343)'
+                                .'|cancel(*:357)'
+                            .')'
+                        .')'
+                    .')'
                 .')'
             .')/?$}sDu',
     ],
     [ // $dynamicRoutes
-        35 => [[['_route' => 'app_v1_empresas_getone', '_controller' => 'App\\Controller\\v1\\EmpresasController::getOne'], ['ruc'], ['GET' => 0], null, false, true, null]],
-        51 => [
-            [['_route' => 'app_v1_empresas_updateambiente', '_controller' => 'App\\Controller\\v1\\EmpresasController::updateAmbiente'], ['ruc'], ['PATCH' => 0], null, false, false, null],
+        26 => [[['_route' => 'app_fiscalfiles_serve', '_controller' => 'App\\Controller\\FiscalFilesController::serve'], ['path'], ['GET' => 0], null, false, true, null]],
+        64 => [[['_route' => 'app_v1_empresas_getone', '_controller' => 'App\\Controller\\v1\\EmpresasController::getOne'], ['ruc'], ['GET' => 0], null, false, true, null]],
+        81 => [[['_route' => 'app_v1_empresas_status', '_controller' => 'App\\Controller\\v1\\EmpresasController::status'], ['ruc'], ['GET' => 0], null, false, false, null]],
+        96 => [[['_route' => 'app_v1_empresas_updateambiente', '_controller' => 'App\\Controller\\v1\\EmpresasController::updateAmbiente'], ['ruc'], ['PATCH' => 0], null, false, false, null]],
+        159 => [[['_route' => 'app_v1_fiscal_bulk', '_controller' => 'App\\Controller\\v1\\FiscalController::bulk'], ['action'], ['POST' => 0], null, false, true, null]],
+        178 => [[['_route' => 'app_v1_fiscal_detail', '_controller' => 'App\\Controller\\v1\\FiscalController::detail'], ['uuid'], ['GET' => 0], null, false, true, null]],
+        194 => [[['_route' => 'app_v1_fiscal_sendmanual', '_controller' => 'App\\Controller\\v1\\FiscalController::sendManual'], ['uuid'], ['POST' => 0], null, false, false, null]],
+        207 => [[['_route' => 'app_v1_fiscal_retry', '_controller' => 'App\\Controller\\v1\\FiscalController::retry'], ['uuid'], ['POST' => 0], null, false, false, null]],
+        220 => [[['_route' => 'app_v1_fiscal_forcesend', '_controller' => 'App\\Controller\\v1\\FiscalController::forceSend'], ['uuid'], ['POST' => 0], null, false, false, null]],
+        233 => [[['_route' => 'app_v1_fiscal_resendemail', '_controller' => 'App\\Controller\\v1\\FiscalController::resendEmail'], ['uuid'], ['POST' => 0], null, false, false, null]],
+        245 => [[['_route' => 'app_v1_fiscal_pollticket', '_controller' => 'App\\Controller\\v1\\FiscalController::pollTicket'], ['uuid'], ['POST' => 0], null, false, false, null]],
+        266 => [[['_route' => 'app_v1_fiscal_generatepdf', '_controller' => 'App\\Controller\\v1\\FiscalController::generatePdf'], ['uuid'], ['POST' => 0], null, false, false, null]],
+        320 => [[['_route' => 'app_v1_fiscal_download', '_controller' => 'App\\Controller\\v1\\FiscalController::download'], ['uuid', 'type'], ['GET' => 0], null, false, true, null]],
+        343 => [[['_route' => 'app_v1_fiscaloperations_audittimeline', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::auditTimeline'], ['uuid'], ['GET' => 0], null, false, false, null]],
+        357 => [
+            [['_route' => 'app_v1_fiscaloperations_cancel', '_controller' => 'App\\Controller\\v1\\FiscalOperationsController::cancel'], ['uuid'], ['POST' => 0], null, false, false, null],
             [null, null, null, null, false, false, 0],
         ],
     ],

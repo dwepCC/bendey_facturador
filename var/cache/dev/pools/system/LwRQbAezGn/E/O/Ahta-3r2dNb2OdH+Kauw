@@ -1,3 +1,0 @@
-<?php //App%255CEntity%255COutboundEmailLog%2523getAttempts
-
-return [PHP_INT_MAX, []];

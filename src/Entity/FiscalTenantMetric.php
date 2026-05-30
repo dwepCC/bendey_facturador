@@ -4,57 +4,58 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\FiscalTenantMetricRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass="App\Repository\FiscalTenantMetricRepository")
- * @ORM\Table(name="fiscal_tenant_metrics")
- */
+#[ORM\Entity(repositoryClass: FiscalTenantMetricRepository::class)]
+#[ORM\Table(name: 'fiscal_tenant_metrics')]
 class FiscalTenantMetric
 {
-    /** @ORM\Id @ORM\GeneratedValue @ORM\Column(type="integer") */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="integer") */
+    #[ORM\Column(type: 'integer')]
     private int $tenantId;
 
-    /** @ORM\Column(type="string", length=100) */
+    #[ORM\Column(type: 'string', length: 100)]
     private string $tenantSlug;
 
-    /** @ORM\Column(type="string", length=11, nullable=true) */
+    #[ORM\Column(type: 'string', length: 11, nullable: true)]
     private ?string $ruc = null;
 
-    /** @ORM\Column(type="date_immutable") */
+    #[ORM\Column(type: 'date_immutable')]
     private \DateTimeImmutable $periodDate;
 
-    /** @ORM\Column(type="string", length=10, options={"default":"day"}) */
+    #[ORM\Column(type: 'string', length: 10, options: ['default' => 'day'])]
     private string $periodType = 'day';
 
-    /** @ORM\Column(type="integer", options={"default":0}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $documentsEmitted = 0;
 
-    /** @ORM\Column(type="integer", options={"default":0}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $documentsAccepted = 0;
 
-    /** @ORM\Column(type="integer", options={"default":0}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $errors = 0;
 
-    /** @ORM\Column(type="integer", options={"default":0}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $retries = 0;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $avgDurationMs = null;
 
-    /** @ORM\Column(type="decimal", precision=5, scale=2, nullable=true) */
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
     private ?string $successRate = null;
 
-    /** @ORM\Column(type="string", length=50, nullable=true) */
+    #[ORM\Column(type: 'string', length: 50, nullable: true)]
     private ?string $provider = null;
 
-    /** @ORM\Column(type="string", length=30, nullable=true) */
+    #[ORM\Column(type: 'string', length: 30, nullable: true)]
     private ?string $sendMode = null;
 
-    /** @ORM\Column(type="datetime_immutable") */
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $updatedAt;
 
     public function __construct()

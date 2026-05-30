@@ -12,13 +12,9 @@ use App\Service\DocumentRequestInterface;
 use Greenter\Model\Perception\Perception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Class PerceptionController.
- *
- * @Route("/api/v1/perception")
- */
+#[Route('/api/v1/perception')]
 class PerceptionController extends AbstractController
 {
     /**
@@ -36,30 +32,27 @@ class PerceptionController extends AbstractController
     }
 
     /**
-     * @Route("/send", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/send', methods: ['POST'])]
     public function send(): Response
     {
         return $this->document->send(Perception::class);
     }
 
     /**
-     * @Route("/xml", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/xml', methods: ['POST'])]
     public function xml(): Response
     {
         return $this->document->xml(Perception::class);
     }
 
     /**
-     * @Route("/pdf", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/pdf', methods: ['POST'])]
     public function pdf(): Response
     {
         return $this->document->pdf(Perception::class);

@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\FiscalAlertRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass="App\Repository\FiscalAlertRepository")
- * @ORM\Table(name="fiscal_alerts")
- */
+#[ORM\Entity(repositoryClass: FiscalAlertRepository::class)]
+#[ORM\Table(name: 'fiscal_alerts')]
 class FiscalAlert
 {
     public const TYPE_CERT_EXPIRING = 'cert_expiring';
@@ -18,37 +17,39 @@ class FiscalAlert
     public const TYPE_QUEUE_SATURATED = 'queue_saturated';
     public const TYPE_RETRY_ANOMALY = 'retry_anomaly';
 
-    /** @ORM\Id @ORM\GeneratedValue @ORM\Column(type="integer") */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $tenantId = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $tenantSlug = null;
 
-    /** @ORM\Column(type="string", length=11, nullable=true) */
+    #[ORM\Column(type: 'string', length: 11, nullable: true)]
     private ?string $ruc = null;
 
-    /** @ORM\Column(type="string", length=50) */
+    #[ORM\Column(type: 'string', length: 50)]
     private string $alertType;
 
-    /** @ORM\Column(type="string", length=20, options={"default":"warning"}) */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'warning'])]
     private string $severity = 'warning';
 
-    /** @ORM\Column(type="string", length=500) */
+    #[ORM\Column(type: 'string', length: 500)]
     private string $message;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $metadataJson = null;
 
-    /** @ORM\Column(type="datetime_immutable", nullable=true) */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $acknowledgedAt = null;
 
-    /** @ORM\Column(type="datetime_immutable", nullable=true) */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $resolvedAt = null;
 
-    /** @ORM\Column(type="datetime_immutable") */
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
     public function __construct()

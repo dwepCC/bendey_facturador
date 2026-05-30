@@ -7,6 +7,7 @@ namespace App\Command;
 use App\Entity\AdminUser;
 use App\Repository\AdminUserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -17,10 +18,9 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 /**
  * Crea el usuario administrador inicial del dashboard fiscal.
  */
+#[AsCommand(name: 'app:admin:seed')]
 class AdminUserSeedCommand extends Command
 {
-    protected static $defaultName = 'app:admin:seed';
-
     private AdminUserRepository $users;
     private EntityManagerInterface $em;
     private UserPasswordHasherInterface $hasher;

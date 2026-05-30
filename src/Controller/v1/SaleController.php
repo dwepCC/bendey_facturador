@@ -14,12 +14,9 @@ use Greenter\Model\Sale\BaseSale;
 use Greenter\Report\Render\QrRender;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\{Request, Response};
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Class SaleController
- * @Route("/api/v1/sale")
- */
+#[Route('/api/v1/sale')]
 class SaleController extends AbstractController
 {
     /**
@@ -37,12 +34,11 @@ class SaleController extends AbstractController
     }
 
     /**
-     * @Route("/qr", methods={"POST"})
-     *
      * @param Request $request
      * @return Response
      * @throws \Exception
      */
+    #[Route('/qr', methods: ['POST'])]
     public function qr(Request $request): Response
     {
         $obj = json_decode($request->getContent());

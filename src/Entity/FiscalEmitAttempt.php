@@ -4,49 +4,46 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\FiscalEmitAttemptRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass="App\Repository\FiscalEmitAttemptRepository")
- * @ORM\Table(name="fiscal_emit_attempts")
- */
+#[ORM\Entity(repositoryClass: FiscalEmitAttemptRepository::class)]
+#[ORM\Table(name: 'fiscal_emit_attempts')]
 class FiscalEmitAttempt
 {
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="string", length=36) */
+    #[ORM\Column(type: 'string', length: 36)]
     private string $documentUuid;
 
-    /** @ORM\Column(type="integer") */
+    #[ORM\Column(type: 'integer')]
     private int $attemptNumber;
 
-    /** @ORM\Column(type="string", length=50, nullable=true) */
+    #[ORM\Column(type: 'string', length: 50, nullable: true)]
     private ?string $provider = null;
 
-    /** @ORM\Column(type="string", length=30) */
+    #[ORM\Column(type: 'string', length: 30)]
     private string $status;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $sunatCode = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $sunatMessage = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $pseMessage = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $errorMessage = null;
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $durationMs = null;
 
-    /** @ORM\Column(type="datetime") */
+    #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
     public function __construct()

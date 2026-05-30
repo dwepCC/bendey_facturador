@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\FiscalDocumentRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Documento fiscal con snapshot JSON inmutable (source of truth fiscal).
- *
- * @ORM\Entity(repositoryClass="App\Repository\FiscalDocumentRepository")
- * @ORM\Table(name="fiscal_documents")
- * @ORM\HasLifecycleCallbacks
  */
+#[ORM\Entity(repositoryClass: FiscalDocumentRepository::class)]
+#[ORM\Table(name: 'fiscal_documents')]
+#[ORM\HasLifecycleCallbacks]
 class FiscalDocument
 {
     public const STATUS_PENDING = 'pending';
@@ -26,122 +26,120 @@ class FiscalDocument
     public const STATUS_RETRYING = 'retrying';
     public const STATUS_CANCELLED = 'cancelled';
 
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="string", length=36, unique=true) */
+    #[ORM\Column(type: 'string', length: 36, unique: true)]
     private string $documentUuid;
 
-    /** @ORM\Column(type="integer") */
+    #[ORM\Column(type: 'integer')]
     private int $tenantId;
 
-    /** @ORM\Column(type="string", length=100) */
+    #[ORM\Column(type: 'string', length: 100)]
     private string $tenantSlug;
 
-    /** @ORM\Column(type="integer") */
+    #[ORM\Column(type: 'integer')]
     private int $saleId;
 
-    /** @ORM\Column(type="string", length=10) */
+    #[ORM\Column(type: 'string', length: 10)]
     private string $documentType;
 
-    /** @ORM\Column(type="string", length=10) */
+    #[ORM\Column(type: 'string', length: 10)]
     private string $series;
 
-    /** @ORM\Column(type="string", length=20) */
+    #[ORM\Column(type: 'string', length: 20)]
     private string $number;
 
-    /** @ORM\Column(type="string", length=30, options={"default":"pending"}) */
+    #[ORM\Column(type: 'string', length: 30, options: ['default' => 'pending'])]
     private string $status = self::STATUS_PENDING;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $sendMode = null;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $sunatMode = null;
 
-    /** @ORM\Column(type="string", length=255, nullable=true) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $customerEmail = null;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $queuedAt = null;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $sentAt = null;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $acceptedAt = null;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $rejectedAt = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $xmlUrl = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $xmlSignedUrl = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $cdrUrl = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $pdfUrl = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $hash = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $ticket = null;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $sunatCode = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $sunatMessage = null;
 
-    /** @ORM\Column(type="integer", options={"default":0}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $retryCount = 0;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $nextRetryAt = null;
 
-    /** @ORM\Column(type="string", length=30, nullable=true) */
+    #[ORM\Column(type: 'string', length: 30, nullable: true)]
     private ?string $emailStatus = null;
 
-    /** @ORM\Column(type="text") */
+    #[ORM\Column(type: 'text')]
     private string $snapshotJson;
 
-    /** @ORM\Column(type="string", length=128, unique=true, nullable=true) */
+    #[ORM\Column(type: 'string', length: 128, unique: true, nullable: true)]
     private ?string $fiscalFingerprint = null;
 
-    /** @ORM\Column(type="string", length=50, nullable=true) */
+    #[ORM\Column(type: 'string', length: 50, nullable: true)]
     private ?string $provider = null;
 
-    /** @ORM\Column(type="integer", options={"default":1}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 1])]
     private int $snapshotVersion = 1;
 
-    /** @ORM\Column(type="string", length=20, options={"default":"1.0"}) */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => '1.0'])]
     private string $schemaVersion = '1.0';
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $greenterVersion = null;
 
-    /** @ORM\Column(type="string", length=20, nullable=true) */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
     private ?string $providerVersion = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $pseResponseJson = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $unsignedXmlUrl = null;
 
-    /** @ORM\Column(type="datetime") */
+    #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
-    /** @ORM\Column(type="datetime") */
+    #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $updatedAt;
 
     public function __construct()
@@ -151,7 +149,7 @@ class FiscalDocument
         $this->updatedAt = $now;
     }
 
-    /** @ORM\PreUpdate */
+    #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();

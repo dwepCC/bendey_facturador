@@ -23,13 +23,12 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * API fiscal async — source of truth de documentos electrónicos SUNAT.
- *
- * @Route("/api/v1/fiscal")
  */
+#[Route('/api/v1/fiscal')]
 class FiscalController extends AbstractController
 {
     private FiscalDocumentService $documentService;
@@ -67,9 +66,7 @@ class FiscalController extends AbstractController
         $this->pdfResolver = $pdfResolver;
     }
 
-    /**
-     * @Route("/emit", methods={"POST"})
-     */
+    #[Route('/emit', methods: ['POST'])]
     public function emit(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -93,9 +90,8 @@ class FiscalController extends AbstractController
 
     /**
      * Sincroniza configuración fiscal completa de empresa (SSOT).
-     *
-     * @Route("/company-sync", methods={"POST"})
      */
+    #[Route('/company-sync', methods: ['POST'])]
     public function companySync(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -114,9 +110,8 @@ class FiscalController extends AbstractController
 
     /**
      * Prueba conexión fiscal real (SUNAT directa o PSE).
-     *
-     * @Route("/test-connection", methods={"POST"})
      */
+    #[Route('/test-connection', methods: ['POST'])]
     public function testConnection(Request $request): JsonResponse
     {
         $payload = json_decode($request->getContent(), true);
@@ -135,9 +130,8 @@ class FiscalController extends AbstractController
 
     /**
      * Listado paginado de empresas (panel admin).
-     *
-     * @Route("/companies", methods={"GET"})
      */
+    #[Route('/companies', methods: ['GET'])]
     public function companies(Request $request): JsonResponse
     {
         $filters = $this->parseCompanyFilters($request);
@@ -158,9 +152,7 @@ class FiscalController extends AbstractController
         return new JsonResponse($response);
     }
 
-    /**
-     * @Route("/stats", methods={"GET"})
-     */
+    #[Route('/stats', methods: ['GET'])]
     public function stats(Request $request): JsonResponse
     {
         $tenantSlug = $this->q($request, 'tenant_slug');
@@ -185,9 +177,7 @@ class FiscalController extends AbstractController
         ));
     }
 
-    /**
-     * @Route("/documents", methods={"GET"})
-     */
+    #[Route('/documents', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
         $filters = $this->parseFilters($request);
@@ -241,9 +231,7 @@ class FiscalController extends AbstractController
         return new JsonResponse($response);
     }
 
-    /**
-     * @Route("/documents/bulk/{action}", methods={"POST"}, requirements={"action": "send|retry|force|email|poll"})
-     */
+    #[Route('/documents/bulk/{action}', methods: ['POST'], requirements: ['action' => 'send|retry|force|email|poll'])]
     public function bulk(string $action, Request $request): JsonResponse
     {
         $body = json_decode($request->getContent(), true);
@@ -270,9 +258,7 @@ class FiscalController extends AbstractController
         return new JsonResponse(array_merge(['action' => $action], $result), Response::HTTP_ACCEPTED);
     }
 
-    /**
-     * @Route("/documents/{uuid}", methods={"GET"})
-     */
+    #[Route('/documents/{uuid}', methods: ['GET'])]
     public function detail(string $uuid): JsonResponse
     {
         $doc = $this->detailService->findDocument($uuid);
@@ -282,49 +268,37 @@ class FiscalController extends AbstractController
         return new JsonResponse($this->detailService->buildDetail($doc));
     }
 
-    /**
-     * @Route("/documents/{uuid}/send", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/send', methods: ['POST'])]
     public function sendManual(string $uuid): JsonResponse
     {
         return $this->enqueueAction($uuid, FiscalQueueService::QUEUE_EMIT, 'queued');
     }
 
-    /**
-     * @Route("/documents/{uuid}/retry", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/retry', methods: ['POST'])]
     public function retry(string $uuid): JsonResponse
     {
         return $this->enqueueAction($uuid, FiscalQueueService::QUEUE_EMIT, 'retry_queued');
     }
 
-    /**
-     * @Route("/documents/{uuid}/force", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/force', methods: ['POST'])]
     public function forceSend(string $uuid): JsonResponse
     {
         return $this->enqueueAction($uuid, FiscalQueueService::QUEUE_EMIT, 'force_queued');
     }
 
-    /**
-     * @Route("/documents/{uuid}/email", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/email', methods: ['POST'])]
     public function resendEmail(string $uuid): JsonResponse
     {
         return $this->enqueueAction($uuid, FiscalQueueService::QUEUE_EMAIL, 'email_queued');
     }
 
-    /**
-     * @Route("/documents/{uuid}/poll", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/poll', methods: ['POST'])]
     public function pollTicket(string $uuid): JsonResponse
     {
         return $this->enqueueAction($uuid, FiscalQueueService::QUEUE_STATUS_POLL, 'poll_queued');
     }
 
-    /**
-     * @Route("/documents/{uuid}/generate-pdf", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/generate-pdf', methods: ['POST'])]
     public function generatePdf(string $uuid): JsonResponse
     {
         $doc = $this->repo->findOneBy(['documentUuid' => $uuid]);
@@ -356,9 +330,7 @@ class FiscalController extends AbstractController
         ]);
     }
 
-    /**
-     * @Route("/documents/{uuid}/download/{type}", methods={"GET"}, requirements={"type": "xml|signed_xml|cdr|pdf|unsigned_xml"})
-     */
+    #[Route('/documents/{uuid}/download/{type}', methods: ['GET'], requirements: ['type' => 'xml|signed_xml|cdr|pdf|unsigned_xml'])]
     public function download(string $uuid, string $type, Request $request): Response
     {
         $doc = $this->repo->findOneBy(['documentUuid' => $uuid]);

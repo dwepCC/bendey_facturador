@@ -131,10 +131,17 @@ Ir a http://localhost:8000/
 
 ### Acceso dashboard fiscal (login requerido)
 
-El dashboard **no** usa `?token=` en la URL. El `CLIENT_TOKEN` es solo para la API del ERP (`backend_go`).
+Ver guía completa de despliegue Docker + VPS + GitHub: [docs/DEPLOY-DOCKER-VPS.md](docs/DEPLOY-DOCKER-VPS.md)
 
 ```bash
-# 1. Migraciones (incluye tabla admin_user)
+# Producción (VPS)
+cp .env.prod.example .env.prod   # editar secretos
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+docker compose -f docker-compose.prod.yml exec app php bin/console app:admin:seed
+```
+
+```bash
+# 1. Migraciones (también corren al iniciar el contenedor app)
 php bin/console doctrine:migrations:migrate --no-interaction
 
 # 2. Crear usuario admin por defecto (cambiar contraseña al primer login)

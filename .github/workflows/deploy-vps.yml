@@ -1,0 +1,49 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Desplegar en VPS vía SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            APP_DIR="${{ secrets.VPS_APP_DIR || '/opt/bendey/facturador_sunat' }}"
+            BRANCH="${{ github.ref_name }}"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "ERROR: No existe repo en $APP_DIR"
+              echo "Clona primero: git clone <tu-repo> $APP_DIR"
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            if [ ! -f .env.prod ]; then
+              echo "ERROR: Falta .env.prod en el VPS"
+              echo "Copia .env.prod.example -> .env.prod y configura secretos"
+              exit 1
+            fi
+
+            docker compose -f docker-compose.prod.yml --env-file .env.prod pull --ignore-buildable || true
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build --remove-orphans
+            docker compose -f docker-compose.prod.yml --env-file .env.prod ps

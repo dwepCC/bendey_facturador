@@ -15,7 +15,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Class ConfigurationController
@@ -23,9 +23,8 @@ use Symfony\Component\Routing\Annotation\Route;
  * Certificado y logo se guardan siempre por RUC: data/{ruc}-cert.pem y data/{ruc}-logo.png,
  * y se actualiza data/empresas.json (mismo criterio que empresas.json). Es obligatorio
  * enviar "ruc" cuando se suben certificate o logo.
- *
- * @Route("/api/v1/configuration")
  */
+#[Route('/api/v1/configuration')]
 class ConfigurationController extends AbstractController
 {
     /**
@@ -58,14 +57,13 @@ class ConfigurationController extends AbstractController
     }
 
     /**
-     * @Route("/", methods={"POST"})
-     *
      * Certificado y logo siempre por RUC: {ruc}-cert.pem y {ruc}-logo.png en data/,
      * y se actualiza data/empresas.json. Si envías certificate o logo sin "ruc" → 400.
      *
      * @param Request $request
      * @return Response
      */
+    #[Route('/', methods: ['POST'])]
     public function config(Request $request) : Response
     {
         $rawContent = $request->getContent();

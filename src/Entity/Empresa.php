@@ -4,98 +4,94 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\EmpresaRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
  * Empresa: datos por RUC (multitenant). Solo credenciales SOL, certificado, logo y ambiente.
  * Las URLs de SUNAT (FE, RE, GUIA) se toman del .env según ambiente (pruebas/produccion).
- *
- * @ORM\Entity(repositoryClass="App\Repository\EmpresaRepository")
- * @ORM\Table(name="empresa")
  */
+#[ORM\Entity(repositoryClass: EmpresaRepository::class)]
+#[ORM\Table(name: 'empresa')]
 class Empresa
 {
-    /**
-     * @ORM\Id
-     * @ORM\Column(type="string", length=11)
-     */
+    #[ORM\Id]
+    #[ORM\Column(type: 'string', length: 11)]
     private string $ruc;
 
-    /** @ORM\Column(type="string", length=100) */
+    #[ORM\Column(type: 'string', length: 100)]
     private string $solUser;
 
-    /** @ORM\Column(type="string", length=255) */
+    #[ORM\Column(type: 'string', length: 255)]
     private string $solPass;
 
-    /** @ORM\Column(type="string", length=255, nullable=true) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $certificate = null;
 
-    /** @ORM\Column(type="string", length=255, nullable=true) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $logo = null;
 
-    /**
-     * Ambiente: pruebas | produccion. Por defecto pruebas.
-     * @ORM\Column(type="string", length=20, options={"default":"pruebas"})
-     */
+    /** Ambiente: pruebas | produccion. Por defecto pruebas. */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'pruebas'])]
     private string $ambiente = 'pruebas';
 
-    /** @ORM\Column(type="integer", nullable=true) */
+    #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $tenantId = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $tenantSlug = null;
 
-    /** @ORM\Column(type="string", length=20, options={"default":"sunat_direct"}) */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'sunat_direct'])]
     private string $sendMode = 'sunat_direct';
 
-    /** @ORM\Column(type="string", length=50, nullable=true) */
+    #[ORM\Column(type: 'string', length: 50, nullable: true)]
     private ?string $provider = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $pseUser = null;
 
-    /** @ORM\Column(type="string", length=255, nullable=true) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $psePass = null;
 
     /** bearer | basic_auth | custom */
-    /** @ORM\Column(type="string", length=20, options={"default":"bearer"}) */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => 'bearer'])]
     private string $connectionType = 'bearer';
 
-    /** @ORM\Column(type="string", length=255, nullable=true) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $pseBaseUrl = null;
 
-    /** @ORM\Column(type="string", length=500, nullable=true) */
+    #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $pseToken = null;
 
-    /** @ORM\Column(type="string", length=255, nullable=true) */
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $certificatePassword = null;
 
-    /** @ORM\Column(type="string", length=100, nullable=true) */
+    #[ORM\Column(type: 'string', length: 100, nullable: true)]
     private ?string $pseSecondaryUser = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $pseMetadataJson = null;
 
     /** connected | invalid_credentials | certificate_expired | configuration_missing | testing | error */
-    /** @ORM\Column(type="string", length=30, options={"default":"configuration_missing"}) */
+    #[ORM\Column(type: 'string', length: 30, options: ['default' => 'configuration_missing'])]
     private string $connectionStatus = 'configuration_missing';
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $connectionError = null;
 
-    /** @ORM\Column(type="datetime_immutable", nullable=true) */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $lastConnectionCheck = null;
 
-    /** @ORM\Column(type="boolean", options={"default":true}) */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $automaticSend = true;
 
-    /** @ORM\Column(type="boolean", options={"default":true}) */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $emailEnabled = true;
 
-    /** @ORM\Column(type="boolean", options={"default":true}) */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $retryEnabled = true;
 
-    /** @ORM\Column(type="boolean", options={"default":true}) */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $enabled = true;
 
     public function getRuc(): string

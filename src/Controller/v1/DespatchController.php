@@ -17,13 +17,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
-/**
- * Class DespatchController.
- *
- * @Route("/api/v1/despatch")
- */
+#[Route('/api/v1/despatch')]
 class DespatchController extends AbstractController
 {
     private DocumentRequestInterface $document;
@@ -40,10 +36,9 @@ class DespatchController extends AbstractController
     }
 
     /**
-     * @Route("/send", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/send', methods: ['POST'])]
     public function send(SeeApiFactory $factory): Response
     {
         /** @var \Greenter\Model\Despatch\Despatch $document */
@@ -69,32 +64,29 @@ class DespatchController extends AbstractController
     }
 
     /**
-     * @Route("/xml", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/xml', methods: ['POST'])]
     public function xml(): Response
     {
         return $this->document->xml(Despatch::class);
     }
 
     /**
-     * @Route("/pdf", methods={"POST"})
-     *
      * @return Response
      */
+    #[Route('/pdf', methods: ['POST'])]
     public function pdf(): Response
     {
         return $this->document->pdf(Despatch::class);
     }
 
     /**
-     * @Route("/status", methods={"GET"})
-     *
      * @param Request $request
      * @param SeeApiFactory $factory
      * @return JsonResponse
      */
+    #[Route('/status', methods: ['GET'])]
     public function status(Request $request, SeeApiFactory $factory): JsonResponse
     {
         $ticket = $request->query->get('ticket');

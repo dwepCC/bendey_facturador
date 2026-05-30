@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\OutboundEmailLogRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-/**
- * @ORM\Entity(repositoryClass="App\Repository\OutboundEmailLogRepository")
- * @ORM\Table(name="outbound_email_logs")
- * @ORM\HasLifecycleCallbacks
- */
+#[ORM\Entity(repositoryClass: OutboundEmailLogRepository::class)]
+#[ORM\Table(name: 'outbound_email_logs')]
+#[ORM\HasLifecycleCallbacks]
 class OutboundEmailLog
 {
     public const STATUS_PENDING = 'pending';
@@ -18,38 +17,36 @@ class OutboundEmailLog
     public const STATUS_FAILED = 'failed';
     public const STATUS_SKIPPED = 'skipped';
 
-    /**
-     * @ORM\Id
-     * @ORM\GeneratedValue
-     * @ORM\Column(type="integer")
-     */
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    /** @ORM\Column(type="string", length=36) */
+    #[ORM\Column(type: 'string', length: 36)]
     private string $documentUuid;
 
-    /** @ORM\Column(type="string", length=255) */
+    #[ORM\Column(type: 'string', length: 255)]
     private string $recipientEmail;
 
-    /** @ORM\Column(type="string", length=30) */
+    #[ORM\Column(type: 'string', length: 30)]
     private string $status = self::STATUS_PENDING;
 
-    /** @ORM\Column(type="integer", options={"default":0}) */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $attempts = 0;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $errorMessage = null;
 
-    /** @ORM\Column(type="text", nullable=true) */
+    #[ORM\Column(type: 'text', nullable: true)]
     private ?string $providerResponse = null;
 
-    /** @ORM\Column(type="datetime", nullable=true) */
+    #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $sentAt = null;
 
-    /** @ORM\Column(type="datetime") */
+    #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $createdAt;
 
-    /** @ORM\Column(type="datetime") */
+    #[ORM\Column(type: 'datetime')]
     private \DateTimeInterface $updatedAt;
 
     public function __construct()
@@ -59,7 +56,7 @@ class OutboundEmailLog
         $this->updatedAt = $now;
     }
 
-    /** @ORM\PreUpdate */
+    #[ORM\PreUpdate]
     public function onPreUpdate(): void
     {
         $this->updatedAt = new \DateTimeImmutable();

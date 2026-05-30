@@ -7,6 +7,7 @@ namespace App\Command;
 use App\Entity\Empresa;
 use App\Repository\EmpresaRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -16,10 +17,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Importa empresas desde data/empresas.json a la tabla empresa (BD).
  * Útil la primera vez que se usa la BD; por defecto ambiente=pruebas.
  */
+#[AsCommand(name: 'app:empresas:import-from-json')]
 class ImportEmpresasFromJsonCommand extends Command
 {
-    protected static $defaultName = 'app:empresas:import-from-json';
-
     private string $dataPath;
     private EntityManagerInterface $em;
     private EmpresaRepository $repository;

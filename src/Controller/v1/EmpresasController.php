@@ -11,7 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * API para gestionar múltiples empresas (multitenant).
@@ -21,9 +21,8 @@ use Symfony\Component\Routing\Annotation\Route;
  * - Al registrar una nueva empresa: SOL_USER y SOL_PASS (Clave SOL) obligatorios. Certificado y logo opcionales.
  * - Al actualizar: solo se modifican los campos que envíes; si no envías certificado ni logo se mantienen los actuales.
  * - Para cambiar solo el ambiente (producción ↔ pruebas) usa PATCH /api/v1/empresas/{ruc}/ambiente.
- *
- * @Route("/api/v1/empresas")
  */
+#[Route('/api/v1/empresas')]
 class EmpresasController extends AbstractController
 {
     private EmpresasService $empresasService;
@@ -42,9 +41,8 @@ class EmpresasController extends AbstractController
 
     /**
      * Lista todas las empresas registradas en la base de datos.
-     *
-     * @Route("", methods={"GET"})
      */
+    #[Route('', methods: ['GET'])]
     public function list(Request $request): JsonResponse
     {
         $empresas = $this->empresasService->getEmpresas();
@@ -53,9 +51,8 @@ class EmpresasController extends AbstractController
 
     /**
      * Obtiene una empresa por RUC.
-     *
-     * @Route("/{ruc}", methods={"GET"}, requirements={"ruc": "\d{11}"})
      */
+    #[Route('/{ruc}', methods: ['GET'], requirements: ['ruc' => '\d{11}'])]
     public function getOne(string $ruc): Response
     {
         $empresas = $this->empresasService->getEmpresas();
@@ -68,9 +65,8 @@ class EmpresasController extends AbstractController
 
     /**
      * Estado fiscal de conexión (sin secretos).
-     *
-     * @Route("/{ruc}/status", methods={"GET"}, requirements={"ruc": "\d{11}"})
      */
+    #[Route('/{ruc}/status', methods: ['GET'], requirements: ['ruc' => '\d{11}'])]
     public function status(string $ruc): JsonResponse
     {
         $ruc = trim($ruc);
@@ -94,9 +90,8 @@ class EmpresasController extends AbstractController
      * Obligatorios al crear: ruc (o clave del objeto), SOL_USER, SOL_PASS.
      * Opcionales: ambiente (default "pruebas"), certificate_base64, logo_base64.
      * Al actualizar: solo se actualizan los campos enviados; certificado y logo se mantienen si no se envían.
-     *
-     * @Route("", methods={"POST"})
      */
+    #[Route('', methods: ['POST'])]
     public function createOrUpdate(Request $request): Response
     {
         $content = $request->getContent();
@@ -138,9 +133,8 @@ class EmpresasController extends AbstractController
      * No modifica Clave SOL, certificado ni logo.
      *
      * Body: { "ambiente": "produccion" } o { "ambiente": "pruebas" }
-     *
-     * @Route("/{ruc}/ambiente", methods={"PATCH"}, requirements={"ruc": "\d{11}"})
      */
+    #[Route('/{ruc}/ambiente', methods: ['PATCH'], requirements: ['ruc' => '\d{11}'])]
     public function updateAmbiente(string $ruc, Request $request): Response
     {
         $ruc = trim($ruc);

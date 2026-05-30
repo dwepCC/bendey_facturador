@@ -10,7 +10,7 @@ namespace App\Controller;
 
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * Class HomeController.
@@ -18,10 +18,10 @@ use Symfony\Component\Routing\Annotation\Route;
 class HomeController
 {
     /**
-     * @Route("/")
      * @param Request $request
      * @return Response
      */
+    #[Route('/')]
     public function index(Request $request): Response
     {
         $content = file_get_contents(__DIR__ . '/../../views/welcome.html');
@@ -30,10 +30,10 @@ class HomeController
     }
 
     /**
-     * @Route("/swagger")
      * @param Request $request
      * @return Response
      */
+    #[Route('/swagger')]
     public function swagger(Request $request): Response
     {
         $rootUrl = $request->getHttpHost().$request->getBasePath();

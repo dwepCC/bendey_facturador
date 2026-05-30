@@ -12,13 +12,12 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * V2.1 — Operaciones y observabilidad fiscal (sin tocar emisión).
- *
- * @Route("/api/v1/fiscal")
  */
+#[Route('/api/v1/fiscal')]
 class FiscalOperationsController extends AbstractController
 {
     private FiscalHealthService $health;
@@ -38,25 +37,19 @@ class FiscalOperationsController extends AbstractController
         $this->audit = $audit;
     }
 
-    /**
-     * @Route("/health", methods={"GET"})
-     */
+    #[Route('/health', methods: ['GET'])]
     public function health(): JsonResponse
     {
         return new JsonResponse($this->health->check());
     }
 
-    /**
-     * @Route("/operations/summary", methods={"GET"})
-     */
+    #[Route('/operations/summary', methods: ['GET'])]
     public function summary(): JsonResponse
     {
         return new JsonResponse($this->operations->summary());
     }
 
-    /**
-     * @Route("/operations/tenants", methods={"GET"})
-     */
+    #[Route('/operations/tenants', methods: ['GET'])]
     public function tenants(Request $request): JsonResponse
     {
         return new JsonResponse($this->operations->tenantsTable([
@@ -70,17 +63,13 @@ class FiscalOperationsController extends AbstractController
         ]));
     }
 
-    /**
-     * @Route("/operations/queue", methods={"GET"})
-     */
+    #[Route('/operations/queue', methods: ['GET'])]
     public function queue(): JsonResponse
     {
         return new JsonResponse($this->operations->queueMonitor());
     }
 
-    /**
-     * @Route("/alerts", methods={"GET"})
-     */
+    #[Route('/alerts', methods: ['GET'])]
     public function alertsList(): JsonResponse
     {
         return new JsonResponse([
@@ -89,9 +78,7 @@ class FiscalOperationsController extends AbstractController
         ]);
     }
 
-    /**
-     * @Route("/documents/{uuid}/audit-timeline", methods={"GET"})
-     */
+    #[Route('/documents/{uuid}/audit-timeline', methods: ['GET'])]
     public function auditTimeline(string $uuid): JsonResponse
     {
         try {
@@ -101,9 +88,7 @@ class FiscalOperationsController extends AbstractController
         }
     }
 
-    /**
-     * @Route("/documents/{uuid}/cancel", methods={"POST"})
-     */
+    #[Route('/documents/{uuid}/cancel', methods: ['POST'])]
     public function cancel(string $uuid): JsonResponse
     {
         try {
