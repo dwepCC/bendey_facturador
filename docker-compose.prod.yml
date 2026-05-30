@@ -49,7 +49,7 @@ services:
       RUN_ADMIN_SEED: ${RUN_ADMIN_SEED:-0}
       RUN_EMPRESAS_IMPORT: ${RUN_EMPRESAS_IMPORT:-0}
     ports:
-      - "${APP_PORT:-8000}:80"
+      - "127.0.0.1:8000:80"
     volumes:
       - ./.env.prod:/var/www/html/.env.prod:ro
       - app_data:/var/www/html/data
