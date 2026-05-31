@@ -10,6 +10,7 @@ use App\Service\Fiscal\FiscalQueueService;
 use App\Service\Fiscal\FiscalStatusPollProcessor;
 use App\Service\Fiscal\FiscalWebhookSyncProcessor;
 use App\Service\Fiscal\Observability\FiscalAuditService;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -28,6 +29,7 @@ class FiscalWorkerCommand extends Command
     private FiscalWebhookSyncProcessor $webhookSyncProcessor;
     private FiscalStatusPollProcessor $statusPollProcessor;
     private FiscalAuditService $audit;
+    private LoggerInterface $logger;
 
     public function __construct(
         FiscalQueueService $queue,
@@ -35,7 +37,8 @@ class FiscalWorkerCommand extends Command
         FiscalEmailProcessor $emailProcessor,
         FiscalWebhookSyncProcessor $webhookSyncProcessor,
         FiscalStatusPollProcessor $statusPollProcessor,
-        FiscalAuditService $audit
+        FiscalAuditService $audit,
+        LoggerInterface $logger
     ) {
         parent::__construct();
         $this->queue = $queue;
@@ -44,6 +47,7 @@ class FiscalWorkerCommand extends Command
         $this->webhookSyncProcessor = $webhookSyncProcessor;
         $this->statusPollProcessor = $statusPollProcessor;
         $this->audit = $audit;
+        $this->logger = $logger;
     }
 
     protected function configure(): void
@@ -138,6 +142,15 @@ class FiscalWorkerCommand extends Command
                     break;
             }
         } catch (\Throwable $e) {
+            $this->logger->error('fiscal_worker_job_failed', [
+                'queue' => $queue,
+                'document_uuid' => $uuid,
+                'attempt' => $job['attempt'] ?? null,
+                'fingerprint' => $job['fingerprint'] ?? null,
+                'ruc' => $job['ruc'] ?? null,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             $output->writeln('<error>' . $queue . ' ' . $uuid . ': ' . $e->getMessage() . '</error>');
         }
     }

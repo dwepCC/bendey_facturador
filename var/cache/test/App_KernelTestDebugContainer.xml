@@ -347,6 +347,7 @@
       <argument type="service" id="App\Service\Fiscal\FiscalWebhookSyncProcessor"/>
       <argument type="service" id="App\Service\Fiscal\FiscalStatusPollProcessor"/>
       <argument type="service" id="App\Service\Fiscal\Observability\FiscalAuditService"/>
+      <argument type="service" id="monolog.logger"/>
       <call method="setName">
         <argument>app:fiscal:worker</argument>
       </call>

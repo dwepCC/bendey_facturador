@@ -64,16 +64,16 @@ class FiscalDocument
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $customerEmail = null;
 
-    #[ORM\Column(type: 'datetime', nullable: true)]
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeInterface $queuedAt = null;
 
-    #[ORM\Column(type: 'datetime', nullable: true)]
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeInterface $sentAt = null;
 
-    #[ORM\Column(type: 'datetime', nullable: true)]
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeInterface $acceptedAt = null;
 
-    #[ORM\Column(type: 'datetime', nullable: true)]
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeInterface $rejectedAt = null;
 
     #[ORM\Column(type: 'string', length: 500, nullable: true)]
@@ -103,7 +103,7 @@ class FiscalDocument
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $retryCount = 0;
 
-    #[ORM\Column(type: 'datetime', nullable: true)]
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeInterface $nextRetryAt = null;
 
     #[ORM\Column(type: 'string', length: 30, nullable: true)]
@@ -136,10 +136,10 @@ class FiscalDocument
     #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $unsignedXmlUrl = null;
 
-    #[ORM\Column(type: 'datetime')]
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeInterface $createdAt;
 
-    #[ORM\Column(type: 'datetime')]
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeInterface $updatedAt;
 
     public function __construct()

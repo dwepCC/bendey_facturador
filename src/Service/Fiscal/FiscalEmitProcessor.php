@@ -78,7 +78,11 @@ class FiscalEmitProcessor
 
     public function process(FiscalDocument $doc): void
     {
-        if ($doc->getStatus() === FiscalDocument::STATUS_ACCEPTED) {
+        if (in_array($doc->getStatus(), [
+            FiscalDocument::STATUS_ACCEPTED,
+            FiscalDocument::STATUS_SENDING,
+            FiscalDocument::STATUS_SENT,
+        ], true)) {
             return;
         }
 

@@ -31,10 +31,10 @@ class FiscalWebhookEvent
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $responseBody = null;
 
-    #[ORM\Column(type: 'datetime', nullable: true)]
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeInterface $deliveredAt = null;
 
-    #[ORM\Column(type: 'datetime')]
+    #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeInterface $createdAt;
 
     public function __construct()
