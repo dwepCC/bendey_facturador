@@ -28,7 +28,7 @@ class FiscalEmailProcessor
         FiscalQueueService $queue,
         FiscalMailerService $mailer,
         LoggerInterface $logger,
-        string $mailFrom = 'noreply@tukifac.com'
+        string $mailFrom = 'noreply@bendey.cloud'
     ) {
         $this->em = $em;
         $this->repo = $repo;

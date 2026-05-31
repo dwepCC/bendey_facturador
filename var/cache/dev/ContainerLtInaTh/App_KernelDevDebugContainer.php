@@ -1176,7 +1176,7 @@ class App_KernelDevDebugContainer extends Container
             'fiscal.storage_path' => (\dirname(__DIR__, 4).'/var/fiscal_storage'),
             'fiscal.storage_public_url' => 'http://localhost:8000/fiscal-files',
             'env(validapse_url)' => 'https://app.validapse.com',
-            'env(mail_from)' => 'noreply@tukifac.com',
+            'env(mail_from)' => 'noreply@bendey.cloud',
             'env(fiscal_storage_driver)' => 'local',
             'env(fiscal_mail_from_name)' => 'Tukifac',
             'event_dispatcher.event_aliases' => [

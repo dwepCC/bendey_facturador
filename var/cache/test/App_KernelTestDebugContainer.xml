@@ -91,7 +91,7 @@
     <parameter key="fiscal.storage_path">D:\bendey_saas\facturador_sunat/var/fiscal_storage</parameter>
     <parameter key="fiscal.storage_public_url">http://localhost:8000/fiscal-files</parameter>
     <parameter key="env(validapse_url)">https://app.validapse.com</parameter>
-    <parameter key="env(mail_from)">noreply@tukifac.com</parameter>
+    <parameter key="env(mail_from)">noreply@bendey.cloud</parameter>
     <parameter key="env(fiscal_storage_driver)">local</parameter>
     <parameter key="env(fiscal_mail_from_name)">Tukifac</parameter>
     <parameter key="event_dispatcher.event_aliases" type="collection">
