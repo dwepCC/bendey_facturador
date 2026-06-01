@@ -131,12 +131,9 @@ class FiscalStatusPollProcessor
             $this->em->flush();
             $this->notifyOrEnqueueSync($doc);
 
-            $empresa = $this->empresaRepo->find($ruc);
-            if ($empresa !== null && $empresa->isEmailEnabled()
+            if ($empresa !== null
                 && in_array($doc->getStatus(), [FiscalDocument::STATUS_ACCEPTED, FiscalDocument::STATUS_OBSERVED], true)) {
-                $this->queue->push(FiscalQueueService::QUEUE_EMAIL, [
-                    'document_uuid' => $doc->getDocumentUuid(),
-                ]);
+                FiscalEmailDispatchHelper::enqueueOrMarkUnavailable($doc, $empresa, $this->queue);
             }
         } catch (\Throwable $e) {
             $this->logger->error('fiscal_status_poll_failed', [

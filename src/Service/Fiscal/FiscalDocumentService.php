@@ -69,6 +69,7 @@ class FiscalDocumentService
         $number = (string) ($snapshot['correlativo'] ?? $payload['number'] ?? '');
 
         $fingerprint = FiscalFingerprint::build($tenantId, $docType, $series, $number, $saleId);
+        $automatic = $payload['automatic_send'] ?? true;
 
         $existing = $this->repo->findOneBy(['fiscalFingerprint' => $fingerprint]);
         if ($existing !== null) {
@@ -76,11 +77,14 @@ class FiscalDocumentService
                 return $existing;
             }
             if (in_array($existing->getStatus(), [
-                FiscalDocument::STATUS_QUEUED,
                 FiscalDocument::STATUS_SENDING,
                 FiscalDocument::STATUS_SENT,
                 FiscalDocument::STATUS_RETRYING,
             ], true)) {
+                return $existing;
+            }
+            if ($existing->getStatus() === FiscalDocument::STATUS_QUEUED && $automatic !== false) {
+                $this->requeueEmit($existing, $ruc);
                 return $existing;
             }
         }
@@ -88,6 +92,9 @@ class FiscalDocumentService
         if (!$this->queue->tryClaimEmit($fingerprint, 120)) {
             $locked = $this->repo->findOneBy(['fiscalFingerprint' => $fingerprint]);
             if ($locked !== null) {
+                if ($locked->getStatus() === FiscalDocument::STATUS_QUEUED && $automatic !== false) {
+                    $this->requeueEmit($locked, $ruc);
+                }
                 return $locked;
             }
         }
@@ -129,18 +136,16 @@ class FiscalDocumentService
         } catch (UniqueConstraintViolationException $e) {
             $dup = $this->repo->findOneBy(['fiscalFingerprint' => $fingerprint]);
             if ($dup !== null) {
+                if ($dup->getStatus() === FiscalDocument::STATUS_QUEUED && $automatic !== false) {
+                    $this->requeueEmit($dup, $ruc);
+                }
                 return $dup;
             }
             throw $e;
         }
 
-        $automatic = $payload['automatic_send'] ?? true;
         if ($automatic !== false) {
-            $this->queue->push(FiscalQueueService::QUEUE_EMIT, [
-                'document_uuid' => $doc->getDocumentUuid(),
-                'fingerprint' => $fingerprint,
-                'ruc' => $ruc,
-            ]);
+            $this->pushEmitJob($doc, $fingerprint, $ruc);
             try {
                 if ($this->audit !== null) {
                     $this->audit->fromDocument($doc, 'fiscal_document_queued', FiscalAuditLog::STATUS_QUEUED, [
@@ -159,27 +164,61 @@ class FiscalDocumentService
     }
 
     /**
+     * Reencola emisión para un documento ya persistido en status queued (recuperación de huérfanos).
+     */
+    public function requeueEmit(FiscalDocument $doc, string $ruc): void
+    {
+        if ($doc->getStatus() !== FiscalDocument::STATUS_QUEUED) {
+            throw new \InvalidArgumentException('Solo se puede reencolar un documento en status queued');
+        }
+        $fingerprint = $doc->getFiscalFingerprint();
+        if ($fingerprint === null || $fingerprint === '') {
+            throw new \InvalidArgumentException('documento sin fiscal_fingerprint');
+        }
+        $this->pushEmitJob($doc, $fingerprint, trim($ruc));
+        try {
+            if ($this->audit !== null) {
+                $this->audit->fromDocument($doc, 'fiscal_document_requeued', FiscalAuditLog::STATUS_QUEUED, [
+                    'ruc' => trim($ruc),
+                    'queue_job_id' => $doc->getDocumentUuid(),
+                ]);
+            }
+        } catch (\Throwable) {
+        }
+    }
+
+    public static function resolveRucFromSnapshot(string $snapshotJson): ?string
+    {
+        $snapshot = json_decode($snapshotJson, true);
+        if (!is_array($snapshot)) {
+            return null;
+        }
+        $ruc = $snapshot['company_ruc'] ?? ($snapshot['company']['ruc'] ?? null);
+
+        return is_string($ruc) && trim($ruc) !== '' ? trim($ruc) : null;
+    }
+
+    private function pushEmitJob(FiscalDocument $doc, string $fingerprint, string $ruc): void
+    {
+        $this->queue->push(FiscalQueueService::QUEUE_EMIT, [
+            'document_uuid' => $doc->getDocumentUuid(),
+            'fingerprint' => $fingerprint,
+            'ruc' => trim($ruc),
+        ]);
+        $this->logger->info('fiscal_emit_job_pushed', [
+            'document_uuid' => $doc->getDocumentUuid(),
+            'fingerprint' => $fingerprint,
+            'status' => $doc->getStatus(),
+        ]);
+    }
+
+    /**
      * @param array<string, mixed> $snapshot
      * @param array<string, mixed> $payload
      */
     private function extractCustomerEmail(array $snapshot, array $payload): ?string
     {
-        if (isset($payload['customer_email']) && is_string($payload['customer_email']) && $payload['customer_email'] !== '') {
-            return $payload['customer_email'];
-        }
-        if (isset($snapshot['customer']) && is_array($snapshot['customer'])) {
-            $email = $snapshot['customer']['email'] ?? null;
-            if (is_string($email) && trim($email) !== '') {
-                return trim($email);
-            }
-        }
-        if (isset($snapshot['client']) && is_array($snapshot['client'])) {
-            $email = $snapshot['client']['email'] ?? null;
-            if (is_string($email) && trim($email) !== '') {
-                return trim($email);
-            }
-        }
-        return null;
+        return FiscalCustomerEmailNormalizer::extractFromPayload($payload, $snapshot);
     }
 
     private function newUuid(): string

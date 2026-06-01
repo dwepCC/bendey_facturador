@@ -102,8 +102,12 @@ class FiscalBulkActionService
         if ($doc->getStatus() === FiscalDocument::STATUS_ACCEPTED && in_array($action, ['send', 'retry'], true)) {
             return true;
         }
-        if ($action === 'email' && $doc->getCustomerEmail() === null) {
-            return true;
+        if ($action === 'email') {
+            $email = FiscalCustomerEmailNormalizer::normalize($doc->getCustomerEmail())
+                ?? FiscalCustomerEmailNormalizer::extractFromSnapshotJson($doc->getSnapshotJson());
+            if (!FiscalCustomerEmailNormalizer::isDeliverable($email)) {
+                return true;
+            }
         }
 
         return false;

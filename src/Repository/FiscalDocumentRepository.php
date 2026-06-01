@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\FiscalDocument;
+use App\Entity\FiscalEmitAttempt;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -291,6 +292,29 @@ class FiscalDocumentRepository extends ServiceEntityRepository
         }
 
         return $qb;
+    }
+
+    /**
+     * Documentos queued sin ningún intento de emisión (probable huérfano de cola Redis).
+     *
+     * @return FiscalDocument[]
+     */
+    public function findOrphanedQueued(\DateTimeInterface $queuedBefore, int $limit = 50): array
+    {
+        $limit = min(500, max(1, $limit));
+
+        return $this->createQueryBuilder('d')
+            ->leftJoin(FiscalEmitAttempt::class, 'a', 'WITH', 'a.documentUuid = d.documentUuid')
+            ->where('d.status = :queued')
+            ->andWhere('a.id IS NULL')
+            ->andWhere('(d.queuedAt IS NULL OR d.queuedAt < :before)')
+            ->setParameter('queued', FiscalDocument::STATUS_QUEUED)
+            ->setParameter('before', $queuedBefore)
+            ->orderBy('d.queuedAt', 'ASC')
+            ->addOrderBy('d.id', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
     }
 
     private function applyElectronicOnly(QueryBuilder $qb, bool $enabled): void

@@ -241,10 +241,8 @@ class FiscalEmitProcessor
             }
             $this->notifyOrEnqueueSync($doc);
 
-            if (in_array($doc->getStatus(), [FiscalDocument::STATUS_ACCEPTED, FiscalDocument::STATUS_OBSERVED], true) && $empresa->isEmailEnabled()) {
-                $this->queue->push(FiscalQueueService::QUEUE_EMAIL, [
-                    'document_uuid' => $doc->getDocumentUuid(),
-                ]);
+            if (in_array($doc->getStatus(), [FiscalDocument::STATUS_ACCEPTED, FiscalDocument::STATUS_OBSERVED], true)) {
+                FiscalEmailDispatchHelper::enqueueOrMarkUnavailable($doc, $empresa, $this->queue);
             }
         } catch (\Throwable $e) {
             $this->logger->error('fiscal_emit_failed', [

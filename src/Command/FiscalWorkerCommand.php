@@ -6,6 +6,7 @@ namespace App\Command;
 
 use App\Service\Fiscal\FiscalEmailProcessor;
 use App\Service\Fiscal\FiscalEmitProcessor;
+use App\Service\Fiscal\FiscalOrphanRecoveryService;
 use App\Service\Fiscal\FiscalQueueService;
 use App\Service\Fiscal\FiscalStatusPollProcessor;
 use App\Service\Fiscal\FiscalWebhookSyncProcessor;
@@ -30,6 +31,8 @@ class FiscalWorkerCommand extends Command
     private FiscalStatusPollProcessor $statusPollProcessor;
     private FiscalAuditService $audit;
     private LoggerInterface $logger;
+    private FiscalOrphanRecoveryService $orphanRecovery;
+    private int $orphanSweepCounter = 0;
 
     public function __construct(
         FiscalQueueService $queue,
@@ -38,7 +41,8 @@ class FiscalWorkerCommand extends Command
         FiscalWebhookSyncProcessor $webhookSyncProcessor,
         FiscalStatusPollProcessor $statusPollProcessor,
         FiscalAuditService $audit,
-        LoggerInterface $logger
+        LoggerInterface $logger,
+        FiscalOrphanRecoveryService $orphanRecovery
     ) {
         parent::__construct();
         $this->queue = $queue;
@@ -48,6 +52,7 @@ class FiscalWorkerCommand extends Command
         $this->statusPollProcessor = $statusPollProcessor;
         $this->audit = $audit;
         $this->logger = $logger;
+        $this->orphanRecovery = $orphanRecovery;
     }
 
     protected function configure(): void
@@ -70,6 +75,7 @@ class FiscalWorkerCommand extends Command
 
         do {
             $this->processDueRetries($output);
+            $this->recoverOrphansIfDue($output);
             $this->queue->touchWorkerHeartbeat();
             $drained = $this->audit->drainQueue(80);
             if ($drained > 0) {
@@ -178,6 +184,19 @@ class FiscalWorkerCommand extends Command
                 'document_uuid' => $uuid,
                 'attempt' => 1,
             ]);
+        }
+    }
+
+    private function recoverOrphansIfDue(OutputInterface $output): void
+    {
+        if (++$this->orphanSweepCounter < 60) {
+            return;
+        }
+        $this->orphanSweepCounter = 0;
+
+        $result = $this->orphanRecovery->recover(5, 20);
+        if ($result['recovered'] > 0) {
+            $output->writeln('<comment>Orphans recovered: ' . $result['recovered'] . '</comment>');
         }
     }
 }

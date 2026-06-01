@@ -45,22 +45,13 @@ class FiscalEmailProcessor
             return;
         }
 
-        $email = $this->resolveEmailFromSnapshot($doc);
-        if ($email === null || $email === '') {
-            $doc->setEmailStatus('skipped');
+        $email = $this->resolveDeliverableEmail($doc);
+        if ($email === null) {
+            $doc->setEmailStatus(FiscalCustomerEmailNormalizer::STATUS_NOT_AVAILABLE);
             $this->em->flush();
-            return;
-        }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $log = new OutboundEmailLog();
-            $log->setDocumentUuid($documentUuid);
-            $log->setRecipientEmail($email);
-            $log->setStatus(OutboundEmailLog::STATUS_FAILED);
-            $log->setErrorMessage('email inválido');
-            $log->setAttempts(1);
-            $this->em->persist($log);
-            $doc->setEmailStatus('invalid');
-            $this->em->flush();
+            $this->logger->info('fiscal_email_not_available', [
+                'uuid' => $documentUuid,
+            ]);
             return;
         }
 
@@ -90,21 +81,17 @@ class FiscalEmailProcessor
         $this->em->flush();
     }
 
-    private function resolveEmailFromSnapshot(FiscalDocument $doc): ?string
+    public function resolveDeliverableEmail(FiscalDocument $doc): ?string
     {
-        if ($doc->getCustomerEmail()) {
-            return trim($doc->getCustomerEmail());
+        $email = FiscalCustomerEmailNormalizer::normalize($doc->getCustomerEmail());
+        if ($email === null) {
+            $email = FiscalCustomerEmailNormalizer::extractFromSnapshotJson($doc->getSnapshotJson());
         }
-        $data = json_decode($doc->getSnapshotJson(), true);
-        if (!is_array($data)) {
+        if (!FiscalCustomerEmailNormalizer::isDeliverable($email)) {
             return null;
         }
-        foreach (['customer', 'client'] as $key) {
-            if (isset($data[$key]['email']) && is_string($data[$key]['email']) && trim($data[$key]['email']) !== '') {
-                return trim($data[$key]['email']);
-            }
-        }
-        return null;
+
+        return $email;
     }
 
     private function sendMail(FiscalDocument $doc, string $to, OutboundEmailLog $log): void

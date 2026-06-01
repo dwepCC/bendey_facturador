@@ -12,6 +12,7 @@ use Greenter\Model\DocumentInterface;
 use Greenter\Report\HtmlReport;
 use Greenter\Report\ReportInterface;
 use Greenter\Report\Resolver\TemplateResolverInterface;
+use App\Service\Fiscal\FiscalCustomerEmailNormalizer;
 
 class HtmlReportDecorator implements ReportInterface
 {
@@ -44,6 +45,8 @@ class HtmlReportDecorator implements ReportInterface
      */
     public function render(DocumentInterface $document, array $parameters = []): ?string
     {
+        FiscalCustomerEmailNormalizer::applyPdfSafeEmails($document);
+
         $template = $this->resolver->getTemplate($document);
 
         $this->htmlReport->setTemplate($template);
