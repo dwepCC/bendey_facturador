@@ -13,6 +13,7 @@ use Greenter\Report\HtmlReport;
 use Greenter\Report\ReportInterface;
 use Greenter\Report\Resolver\TemplateResolverInterface;
 use App\Service\Fiscal\FiscalCustomerEmailNormalizer;
+use App\Twig\SafeImageTwigExtension;
 
 class HtmlReportDecorator implements ReportInterface
 {
@@ -35,6 +36,10 @@ class HtmlReportDecorator implements ReportInterface
     {
         $this->htmlReport = $htmlReport;
         $this->resolver = $resolver;
+        $twig = $htmlReport->getTwig();
+        if ($twig !== null) {
+            $twig->addExtension(new SafeImageTwigExtension());
+        }
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Service\Fiscal\FiscalConnectionTestService;
 use App\Service\Fiscal\FiscalDocumentDetailService;
 use App\Service\Fiscal\FiscalDocumentService;
 use App\Service\Fiscal\FiscalDocumentPdfResolver;
+use App\Service\Fiscal\FiscalDateRangeParser;
 use App\Service\Fiscal\FiscalFileFetcher;
 use App\Service\Fiscal\FiscalPdfRenderException;
 use App\Service\Fiscal\FiscalQueueService;
@@ -171,8 +172,8 @@ class FiscalController extends AbstractController
 
         return new JsonResponse($this->detailService->globalStats(
             $tenantSlug,
-            $fromStr ? new \DateTimeImmutable((string) $fromStr) : null,
-            $toStr ? new \DateTimeImmutable((string) $toStr) : null,
+            FiscalDateRangeParser::rangeStart($fromStr),
+            FiscalDateRangeParser::rangeEndExclusive($toStr),
             $tenantId !== null && $tenantId !== '' ? (int) $tenantId : null
         ));
     }
@@ -438,8 +439,8 @@ class FiscalController extends AbstractController
             'customer_email' => $this->q($request, 'customer_email'),
             'customer_name' => $this->q($request, 'customer_name'),
             'company_ruc' => $this->q($request, 'company_ruc'),
-            'from' => $fromStr ? new \DateTimeImmutable((string) $fromStr) : null,
-            'to' => $toStr ? new \DateTimeImmutable((string) $toStr) : null,
+            'from' => FiscalDateRangeParser::rangeStart($fromStr),
+            'to' => FiscalDateRangeParser::rangeEndExclusive($toStr),
             'limit' => min(200, max(1, (int) $request->query->get('limit', 50))),
             'offset' => max(0, (int) $request->query->get('offset', 0)),
             'cursor' => $this->q($request, 'cursor'),
@@ -471,10 +472,10 @@ class FiscalController extends AbstractController
             $out['tenant_id'] = (int) $raw['tenant_id'];
         }
         if (!empty($raw['from'])) {
-            $out['from'] = new \DateTimeImmutable((string) $raw['from']);
+            $out['from'] = FiscalDateRangeParser::rangeStart((string) $raw['from']);
         }
         if (!empty($raw['to'])) {
-            $out['to'] = new \DateTimeImmutable((string) $raw['to']);
+            $out['to'] = FiscalDateRangeParser::rangeEndExclusive((string) $raw['to']);
         }
         foreach (['errors_only', 'pending_only', 'retry_only', 'email_pending'] as $flag) {
             if (!empty($raw[$flag])) {
@@ -524,8 +525,19 @@ class FiscalController extends AbstractController
         if ($value === null || $value === '') {
             return null;
         }
-        $dt = new \DateTimeImmutable((string) $value);
-        if ($endOfDay && !str_contains((string) $value, 'T') && !str_contains((string) $value, ' ')) {
+        $str = trim((string) $value);
+        $tz = new \DateTimeZone('America/Lima');
+        $isDateOnly = !str_contains($str, 'T') && !str_contains($str, ' ');
+
+        if ($isDateOnly) {
+            return new \DateTimeImmutable(
+                $str . ($endOfDay ? ' 23:59:59' : ' 00:00:00'),
+                $tz
+            );
+        }
+
+        $dt = new \DateTimeImmutable($str, $tz);
+        if ($endOfDay) {
             $dt = $dt->setTime(23, 59, 59);
         }
 

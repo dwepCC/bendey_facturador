@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\Fiscal;
 
+use App\Repository\EmpresaRepository;
 use App\Service\ConfigProviderInterface;
 use App\Service\FileDataReader;
 use App\Service\SeeFactory;
@@ -21,6 +22,7 @@ class FiscalPdfService
     private SeeFactory $seeFactory;
     private ConfigProviderInterface $fileProvider;
     private FileDataReader $fileReader;
+    private EmpresaRepository $empresaRepo;
     private LoggerInterface $logger;
 
     public function __construct(
@@ -28,12 +30,14 @@ class FiscalPdfService
         SeeFactory $seeFactory,
         ConfigProviderInterface $fileProvider,
         FileDataReader $fileReader,
+        EmpresaRepository $empresaRepo,
         LoggerInterface $logger
     ) {
         $this->report = $report;
         $this->seeFactory = $seeFactory;
         $this->fileProvider = $fileProvider;
         $this->fileReader = $fileReader;
+        $this->empresaRepo = $empresaRepo;
         $this->logger = $logger;
     }
 
@@ -74,6 +78,27 @@ class FiscalPdfService
 
     private function resolveLogo(string $ruc): ?string
     {
+        $ruc = (string) preg_replace('/\D/', '', $ruc);
+        if ($ruc === '') {
+            return null;
+        }
+
+        $candidates = [$ruc . '-logo.png'];
+        $empresa = $this->empresaRepo->findByRuc($ruc);
+        if ($empresa !== null) {
+            $logoFile = trim((string) ($empresa->getLogo() ?? ''));
+            if ($logoFile !== '') {
+                array_unshift($candidates, $logoFile);
+            }
+        }
+
+        foreach (array_unique($candidates) as $filename) {
+            $bytes = $this->fileReader->getContents($filename);
+            if (is_string($bytes) && $bytes !== '') {
+                return $bytes;
+            }
+        }
+
         $jsonCompanies = $this->fileProvider->get('companies');
         if ($jsonCompanies === '') {
             return null;
@@ -82,14 +107,12 @@ class FiscalPdfService
         if (!is_array($companies) || !isset($companies[$ruc]['logo'])) {
             return null;
         }
-        $logoFile = (string) $companies[$ruc]['logo'];
+        $logoFile = trim((string) $companies[$ruc]['logo']);
         if ($logoFile === '') {
             return null;
         }
-        try {
-            return $this->fileReader->getContents($logoFile);
-        } catch (\Throwable $e) {
-            return null;
-        }
+        $bytes = $this->fileReader->getContents($logoFile);
+
+        return (is_string($bytes) && $bytes !== '') ? $bytes : null;
     }
 }

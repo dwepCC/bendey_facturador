@@ -99,9 +99,10 @@ class FiscalDocumentDetailService
         $sent = $counts['sent'] ?? 0;
         $accepted = $counts['accepted'] ?? 0;
 
-        $todayFrom = new \DateTimeImmutable('today midnight');
+        $todayFrom = new \DateTimeImmutable('today midnight', new \DateTimeZone(FiscalDateRangeParser::TZ));
         $todayFilters = [
             'from' => $todayFrom,
+            'to' => $todayFrom->modify('+1 day'),
             'electronic_only' => true,
         ];
         if ($tenantSlug !== null && $tenantSlug !== '') {

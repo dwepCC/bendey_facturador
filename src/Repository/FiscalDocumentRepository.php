@@ -135,7 +135,7 @@ class FiscalDocumentRepository extends ServiceEntityRepository
             $qb->andWhere('d.createdAt >= :from')->setParameter('from', $from);
         }
         if ($to !== null) {
-            $qb->andWhere('d.createdAt <= :to')->setParameter('to', $to);
+            $qb->andWhere('d.createdAt < :to')->setParameter('to', $to);
         }
 
         $rows = $qb->getQuery()->getArrayResult();
@@ -274,7 +274,7 @@ class FiscalDocumentRepository extends ServiceEntityRepository
             $qb->andWhere('d.createdAt >= :from')->setParameter('from', $filters['from']);
         }
         if (!empty($filters['to']) && $filters['to'] instanceof \DateTimeInterface) {
-            $qb->andWhere('d.createdAt <= :to')->setParameter('to', $filters['to']);
+            $qb->andWhere('d.createdAt < :to')->setParameter('to', $filters['to']);
         }
         if (!empty($filters['errors_only'])) {
             $qb->andWhere('d.status IN (:err)')->setParameter('err', ['error', 'rejected', 'retrying']);
