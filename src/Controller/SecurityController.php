@@ -50,16 +50,16 @@ class SecurityController extends AbstractController
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Acceso — Facturador fiscal</title>
+  <title>Acceso — Bendey Facturador</title>
   <link rel="stylesheet" href="{$css}">
 </head>
 <body class="fiscal-ui">
   <div class="auth-wrap">
     <form class="auth-card" method="post" action="/login">
       <div class="auth-brand">
-        <div class="auth-logo">TF</div>
+        <div class="auth-logo">BE</div>
         <div>
-          <h1>Facturador fiscal</h1>
+          <h1>Bendey Facturador</h1>
           <p class="auth-sub">Panel de operaciones SUNAT / PSE</p>
         </div>
       </div>
@@ -70,7 +70,6 @@ class SecurityController extends AbstractController
       <label for="password">Contraseña</label>
       <input id="password" name="_password" type="password" required autocomplete="current-password">
       <button type="submit" class="btn-primary">Ingresar</button>
-      <p class="auth-hint">El token <code>CLIENT_TOKEN</code> es solo para la API del ERP (<code>backend_go</code>), no para acceso web.</p>
     </form>
   </div>
 </body>
