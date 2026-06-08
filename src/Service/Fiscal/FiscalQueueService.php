@@ -216,4 +216,10 @@ class FiscalQueueService
     {
         return $this->safeRead(0, fn () => (int) $this->client->zcard($queue));
     }
+
+    /** Cliente Redis interno (purge administrativo). */
+    public function getRedisClient(): ?Client
+    {
+        return $this->client;
+    }
 }

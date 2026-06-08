@@ -19,6 +19,8 @@ use App\Service\Fiscal\FiscalDateRangeParser;
 use App\Service\Fiscal\FiscalFileFetcher;
 use App\Service\Fiscal\FiscalPdfRenderException;
 use App\Service\Fiscal\FiscalQueueService;
+use App\Service\Fiscal\EmpresaDestroy\EmpresaDestroyResult;
+use App\Service\Fiscal\EmpresaDestroy\EmpresaDestroyService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -42,6 +44,7 @@ class FiscalController extends AbstractController
     private FiscalCompanySyncService $companySyncService;
     private FiscalConnectionTestService $connectionTestService;
     private FiscalDocumentPdfResolver $pdfResolver;
+    private EmpresaDestroyService $empresaDestroyService;
 
     public function __construct(
         FiscalDocumentService $documentService,
@@ -53,7 +56,8 @@ class FiscalController extends AbstractController
         EmpresaRepository $empresaRepo,
         FiscalCompanySyncService $companySyncService,
         FiscalConnectionTestService $connectionTestService,
-        FiscalDocumentPdfResolver $pdfResolver
+        FiscalDocumentPdfResolver $pdfResolver,
+        EmpresaDestroyService $empresaDestroyService
     ) {
         $this->documentService = $documentService;
         $this->repo = $repo;
@@ -65,6 +69,7 @@ class FiscalController extends AbstractController
         $this->companySyncService = $companySyncService;
         $this->connectionTestService = $connectionTestService;
         $this->pdfResolver = $pdfResolver;
+        $this->empresaDestroyService = $empresaDestroyService;
     }
 
     #[Route('/emit', methods: ['POST'])]
@@ -151,6 +156,71 @@ class FiscalController extends AbstractController
         }
 
         return new JsonResponse($response);
+    }
+
+    /**
+     * Eliminación completa de empresa fiscal (solo admin con sesión; no token ERP).
+     */
+    #[Route('/companies/{ruc}/destroy-complete', methods: ['POST'])]
+    public function destroyCompany(string $ruc, Request $request): JsonResponse
+    {
+        if ($this->getUser() === null) {
+            return new JsonResponse(['error' => 'Solo administradores autenticados del facturador'], Response::HTTP_FORBIDDEN);
+        }
+        if ($request->query->has('token')) {
+            return new JsonResponse(['error' => 'Operación no permitida con token de integración'], Response::HTTP_FORBIDDEN);
+        }
+
+        $payload = json_decode($request->getContent(), true);
+        if (!is_array($payload)) {
+            return new JsonResponse(['error' => 'JSON inválido'], Response::HTTP_BAD_REQUEST);
+        }
+        $confirmRuc = preg_replace('/\D/', '', (string) ($payload['confirm_ruc'] ?? ''));
+        $expected = preg_replace('/\D/', '', $ruc);
+        if ($confirmRuc === '' || $confirmRuc !== $expected) {
+            return new JsonResponse(['error' => 'confirm_ruc no coincide con el RUC de la empresa'], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $username = method_exists($this->getUser(), 'getUserIdentifier')
+                ? (string) $this->getUser()->getUserIdentifier()
+                : 'admin';
+            $hints = [];
+            $slugHint = trim((string) ($payload['tenant_slug'] ?? ''));
+            if ($slugHint !== '') {
+                $hints['tenant_slug'] = $slugHint;
+            }
+            if (isset($payload['tenant_id']) && (int) $payload['tenant_id'] > 0) {
+                $hints['tenant_id'] = (int) $payload['tenant_id'];
+            }
+
+            $result = $this->empresaDestroyService->destroy($expected, $username, $hints);
+            $status = match ($result->cleanupStatus) {
+                EmpresaDestroyResult::STATUS_COMPLETE => Response::HTTP_OK,
+                EmpresaDestroyResult::STATUS_PARTIAL => Response::HTTP_MULTI_STATUS,
+                default => Response::HTTP_INTERNAL_SERVER_ERROR,
+            };
+
+            $message = match (true) {
+                $result->cleanupStatus === EmpresaDestroyResult::STATUS_COMPLETE && $result->alreadyDeleted
+                    => 'Empresa ya eliminada; residuos externos limpiados',
+                $result->cleanupStatus === EmpresaDestroyResult::STATUS_COMPLETE
+                    => 'Empresa fiscal eliminada por completo del facturador',
+                $result->alreadyDeleted
+                    => 'Empresa ya eliminada; quedan residuos por limpiar',
+                default => 'Empresa eliminada de BD con limpieza externa parcial',
+            };
+
+            return new JsonResponse([
+                'success' => $result->cleanupStatus !== EmpresaDestroyResult::STATUS_FAILED,
+                'message' => $message,
+                'result' => $result->toArray(),
+            ], $status);
+        } catch (\InvalidArgumentException $e) {
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['error' => 'Error al eliminar empresa: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     #[Route('/stats', methods: ['GET'])]

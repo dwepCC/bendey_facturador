@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Empresas — Panel Fiscal</title>
   <link rel="stylesheet" href="__FISCAL_CSS__">
+  <style>
+    .btn-danger { background: #b91c1c; color: #fff; border: none; }
+    .btn-danger:hover { background: #991b1b; }
+    .destroy-modal-backdrop {
+      position: fixed; inset: 0; background: rgba(15,23,42,.55);
+      display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem;
+    }
+    .destroy-modal-backdrop.open { display: flex; }
+    .destroy-modal {
+      background: #fff; border-radius: 12px; max-width: 520px; width: 100%;
+      padding: 1.25rem 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,.15);
+    }
+    .destroy-modal h2 { margin: 0 0 .75rem; color: #b91c1c; font-size: 1.1rem; }
+    .destroy-modal ul { margin: .5rem 0 1rem 1.1rem; font-size: .9rem; line-height: 1.45; }
+    .destroy-modal .actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
+    .destroy-modal input { width: 100%; margin-top: .75rem; padding: .5rem .65rem; border: 1px solid #cbd5e1; border-radius: 8px; }
+    .col-actions { white-space: nowrap; }
+  </style>
 </head>
 <body class="fiscal-ui">
   <div class="dash-shell">
@@ -65,6 +83,7 @@
               <th>Última verificación</th>
               <th>Usuario SOL</th>
               <th>Activa</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
@@ -80,10 +99,36 @@
     </div>
   </div>
 
+  <div class="destroy-modal-backdrop" id="destroyModal" aria-hidden="true">
+    <div class="destroy-modal" role="dialog" aria-labelledby="destroyTitle">
+      <h2 id="destroyTitle">ATENCIÓN</h2>
+      <p>Esta acción eliminará <strong>permanentemente</strong> toda la información fiscal asociada a esta empresa en el facturador.</p>
+      <p>Se eliminarán:</p>
+      <ul>
+        <li>Empresa fiscal</li>
+        <li>Documentos emitidos</li>
+        <li>XML, CDR, PDF</li>
+        <li>Certificados</li>
+        <li>Configuración SOL</li>
+        <li>Historiales, eventos, reintentos</li>
+        <li>Colas pendientes y caché Redis relacionada</li>
+      </ul>
+      <p><strong>Esta acción no puede deshacerse.</strong></p>
+      <p class="hint-muted">Empresa: <code id="destroyRucLabel"></code> · Tenant: <span id="destroySlugLabel"></span></p>
+      <label for="destroyConfirm">Escriba el RUC para confirmar:</label>
+      <input id="destroyConfirm" type="text" maxlength="11" inputmode="numeric" autocomplete="off" placeholder="11 dígitos">
+      <div class="actions">
+        <button type="button" class="btn btn-slate" id="destroyCancel">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="destroySubmit" disabled>Eliminar Empresa Fiscal</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API = '__API_BASE__';
     const fetchOpts = { credentials: 'same-origin' };
     const pageState = { offset: 0, limit: 25, total: 0 };
+    let destroyTarget = null;
 
     const qs = id => document.getElementById(id);
 
@@ -144,6 +189,69 @@
       return r;
     }
 
+    function openDestroyModal(row) {
+      destroyTarget = row;
+      qs('destroyRucLabel').textContent = row.ruc || '';
+      qs('destroySlugLabel').textContent = row.tenant_slug || '—';
+      qs('destroyConfirm').value = '';
+      qs('destroySubmit').disabled = true;
+      qs('destroyModal').classList.add('open');
+      qs('destroyConfirm').focus();
+    }
+
+    function closeDestroyModal() {
+      destroyTarget = null;
+      qs('destroyModal').classList.remove('open');
+    }
+
+    async function submitDestroy() {
+      if (!destroyTarget) return;
+      const confirmRuc = qs('destroyConfirm').value.replace(/\D/g, '');
+      if (confirmRuc !== String(destroyTarget.ruc || '').replace(/\D/g, '')) {
+        alert('El RUC de confirmación no coincide.');
+        return;
+      }
+      qs('destroySubmit').disabled = true;
+      qs('destroySubmit').textContent = 'Eliminando…';
+      try {
+        const r = await apiFetch(API + '/companies/' + encodeURIComponent(destroyTarget.ruc) + '/destroy-complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            confirm_ruc: confirmRuc,
+            tenant_slug: destroyTarget.tenant_slug || null,
+            tenant_id: destroyTarget.tenant_id || null
+          })
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok && !data.result) {
+          alert(data.error || 'No se pudo eliminar la empresa');
+          return;
+        }
+        const msg = data.message || 'Empresa eliminada';
+        const partial = data.result && data.result.cleanup_status === 'partial';
+        const warnParts = [];
+        if (data.result && data.result.file_errors && data.result.file_errors.length) {
+          warnParts.push('archivos: ' + data.result.file_errors.length);
+        }
+        if (data.result && data.result.redis_residues_found > 0) {
+          warnParts.push('Redis: ' + data.result.redis_residues_found + ' residuo(s)');
+        }
+        if (data.result && data.result.storage_residues_found > 0) {
+          warnParts.push('almacenamiento: ' + data.result.storage_residues_found + ' residuo(s)');
+        }
+        const warn = warnParts.length ? '\nAdvertencias: ' + warnParts.join(', ') : '';
+        alert((partial ? 'Limpieza parcial.\n' : '') + msg + warn);
+        closeDestroyModal();
+        loadList();
+      } catch (e) {
+        alert(e.message || 'Error de red');
+      } finally {
+        qs('destroySubmit').textContent = 'Eliminar Empresa Fiscal';
+        qs('destroySubmit').disabled = false;
+      }
+    }
+
     async function loadList() {
       const params = Object.assign({}, currentFilters(), {
         offset: pageState.offset,
@@ -152,7 +260,7 @@
       });
       const r = await apiFetch(url('/companies', params));
       if (!r.ok) {
-        qs('rows').innerHTML = '<tr><td colspan="9">Error al cargar empresas</td></tr>';
+        qs('rows').innerHTML = '<tr><td colspan="10">Error al cargar empresas</td></tr>';
         return;
       }
       const data = await r.json();
@@ -160,15 +268,16 @@
       const items = data.items || [];
       const tbody = qs('rows');
       if (!items.length) {
-        tbody.innerHTML = '<tr><td colspan="9">Sin resultados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10">Sin resultados</td></tr>';
       } else {
         tbody.innerHTML = items.map(row => {
           const conn = row.connection_status || '';
           const err = row.connection_error ? `<br><small class="hint-muted">${escapeHtml(row.connection_error)}</small>` : '';
           const mode = row.send_mode_label || (row.send_mode === 'pse' ? 'PSE' : 'SUNAT directo');
           const amb = envLabel[String(row.ambiente || '').toLowerCase()] || row.ambiente || '—';
+          const rucEsc = escapeHtml(row.ruc || '');
           return `<tr>
-            <td><code>${escapeHtml(row.ruc || '')}</code></td>
+            <td><code>${rucEsc}</code></td>
             <td>${escapeHtml(row.tenant_slug || '—')}</td>
             <td>${escapeHtml(amb)}</td>
             <td><span class="badge${row.send_mode === 'pse' ? ' badge-warn' : ' badge-ok'}">${escapeHtml(mode)}</span></td>
@@ -177,8 +286,16 @@
             <td>${formatDate(row.last_connection_check)}</td>
             <td>${escapeHtml(row.sol_user || '—')}</td>
             <td>${row.enabled ? 'Sí' : 'No'}</td>
+            <td class="col-actions"><button type="button" class="btn btn-danger btn-sm destroy-btn" data-ruc="${rucEsc}">Eliminar Empresa Fiscal</button></td>
           </tr>`;
         }).join('');
+        tbody.querySelectorAll('.destroy-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const ruc = btn.getAttribute('data-ruc');
+            const row = items.find(i => String(i.ruc) === ruc);
+            if (row) openDestroyModal(row);
+          });
+        });
       }
       const from = pageState.total ? pageState.offset + 1 : 0;
       const to = Math.min(pageState.offset + pageState.limit, pageState.total);
@@ -209,6 +326,14 @@
         loadList();
       }
     });
+    qs('destroyCancel').addEventListener('click', closeDestroyModal);
+    qs('destroyModal').addEventListener('click', e => { if (e.target === qs('destroyModal')) closeDestroyModal(); });
+    qs('destroyConfirm').addEventListener('input', () => {
+      const v = qs('destroyConfirm').value.replace(/\D/g, '');
+      const expected = destroyTarget ? String(destroyTarget.ruc || '').replace(/\D/g, '') : '';
+      qs('destroySubmit').disabled = v.length !== 11 || v !== expected;
+    });
+    qs('destroySubmit').addEventListener('click', submitDestroy);
 
     loadList();
   </script>
