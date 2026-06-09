@@ -637,6 +637,10 @@ class FiscalController extends AbstractController
             'enabled' => $empresa->isEnabled(),
             'sol_user' => $empresa->getSolUser(),
             'has_certificate' => $empresa->getCertificate() !== null && $empresa->getCertificate() !== '',
+            'gre_oauth_configured' => \App\Service\Gre\GreOAuthCredentialResolver::isConfigured(
+                $empresa,
+                new \App\Service\EnvConfigProvider()
+            ),
             'pse_configured' => $isPse && $empresa->resolvePseBaseUrl() !== '',
         ];
     }

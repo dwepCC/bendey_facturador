@@ -6,7 +6,9 @@ namespace App\Tests\Service\Fiscal;
 
 use App\Service\Fiscal\FiscalCustomerEmailNormalizer;
 use Greenter\Model\Client\Client;
+use Greenter\Model\Company\Company;
 use Greenter\Model\Sale\Invoice;
+use Greenter\Model\Sale\Note;
 use PHPUnit\Framework\TestCase;
 
 class FiscalCustomerEmailNormalizerTest extends TestCase
@@ -64,5 +66,21 @@ class FiscalCustomerEmailNormalizerTest extends TestCase
         FiscalCustomerEmailNormalizer::applyPdfSafeEmails($invoice);
 
         $this->assertSame(FiscalCustomerEmailNormalizer::PLACEHOLDER, $invoice->getClient()->getEmail());
+    }
+
+    public function testApplyPdfSafeEmailsWorksForCreditNoteWithoutSeller(): void
+    {
+        $note = new Note();
+        $client = new Client();
+        $client->setEmail(null);
+        $note->setClient($client);
+        $company = new Company();
+        $company->setEmail(null);
+        $note->setCompany($company);
+
+        FiscalCustomerEmailNormalizer::applyPdfSafeEmails($note);
+
+        $this->assertSame(FiscalCustomerEmailNormalizer::PLACEHOLDER, $note->getClient()->getEmail());
+        $this->assertSame(FiscalCustomerEmailNormalizer::PLACEHOLDER, $note->getCompany()->getEmail());
     }
 }

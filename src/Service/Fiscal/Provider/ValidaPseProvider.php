@@ -7,7 +7,7 @@ namespace App\Service\Fiscal\Provider;
 use App\Entity\Empresa;
 use App\Entity\FiscalDocument;
 use App\Service\Fiscal\CdrNormalizer;
-use Greenter\Factory\XmlBuilderResolver;
+use App\Greenter\Factory\XmlBuilderResolverFactory;
 use Greenter\Model\DocumentInterface;
 
 /**
@@ -17,10 +17,12 @@ use Greenter\Model\DocumentInterface;
 class ValidaPseProvider extends AbstractFiscalProvider
 {
     private PseAuthBuilder $authBuilder;
+    private XmlBuilderResolverFactory $xmlBuilderResolverFactory;
 
-    public function __construct(PseAuthBuilder $authBuilder)
+    public function __construct(PseAuthBuilder $authBuilder, XmlBuilderResolverFactory $xmlBuilderResolverFactory)
     {
         $this->authBuilder = $authBuilder;
+        $this->xmlBuilderResolverFactory = $xmlBuilderResolverFactory;
     }
 
     public function getName(): string
@@ -282,7 +284,7 @@ class ValidaPseProvider extends AbstractFiscalProvider
 
     private function buildUnsignedXml(string $documentClass, DocumentInterface $greenterDoc): string
     {
-        $builder = (new XmlBuilderResolver(['autoescape' => false]))->find($documentClass);
+        $builder = $this->xmlBuilderResolverFactory->create(['autoescape' => false])->find($documentClass);
         $xml = $builder->build($greenterDoc);
         if (!is_string($xml) || trim($xml) === '') {
             throw new \RuntimeException('No se pudo generar XML UBL del comprobante');

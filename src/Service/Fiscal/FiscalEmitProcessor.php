@@ -140,6 +140,10 @@ class FiscalEmitProcessor
                 return;
             }
 
+            if ($this->handleGrePendingTicketPoll($doc, $documentClass, $greenterDoc, $result, $providerName, $attemptNum, $started)) {
+                return;
+            }
+
             $signedXml = $result->signedXml ?? '';
             if ($signedXml === '') {
                 if (!empty($result->pseResponse)) {
@@ -329,11 +333,80 @@ class FiscalEmitProcessor
         $this->recordAttempt($doc, $attemptNum, $providerName, FiscalDocument::STATUS_SENT, $result, null, $started);
         $this->em->flush();
         $this->notifyOrEnqueueSync($doc);
-        $this->queue->scheduleRetry($doc->getDocumentUuid(), 30, FiscalQueueService::QUEUE_STATUS_POLL);
+        $this->enqueueGreStatusPoll($doc);
         if ($doc->getFiscalFingerprint()) {
             $this->queue->releaseClaim($doc->getFiscalFingerprint());
         }
         return true;
+    }
+
+    /**
+     * GRE REST: XML firmado + ticket sin CDR → almacenar y encolar poll.
+     */
+    private function handleGrePendingTicketPoll(
+        FiscalDocument $doc,
+        string $documentClass,
+        DocumentInterface $greenterDoc,
+        FiscalEmitResult $result,
+        string $providerName,
+        int $attemptNum,
+        float $started
+    ): bool {
+        if (empty($result->pendingTicketPoll) || ($result->ticket ?? '') === '') {
+            return false;
+        }
+        if (!FiscalDocumentClassResolver::isTicketBased($documentClass)) {
+            return false;
+        }
+        $signedXml = $result->signedXml ?? '';
+        if ($signedXml === '') {
+            return false;
+        }
+
+        if (($result->pdf === null || $result->pdf === '') && FiscalDocumentClassResolver::supportsPdf($documentClass)) {
+            $result->pdf = $this->pdfService->render($documentClass, $greenterDoc, $signedXml);
+        }
+
+        $stored = $this->storage->store(
+            $doc->getTenantSlug(),
+            $doc->getDocumentType(),
+            $doc->getSeries(),
+            $doc->getNumber(),
+            $result->unsignedXml,
+            $signedXml,
+            null,
+            $result->pdf
+        );
+
+        $doc->setSentAt(new \DateTimeImmutable());
+        $doc->setHash($result->hash);
+        $doc->setTicket($result->ticket);
+        $doc->setXmlUrl($stored['xml_url']);
+        $doc->setUnsignedXmlUrl($stored['unsigned_xml_url']);
+        $doc->setXmlSignedUrl($stored['xml_signed_url']);
+        $doc->setPdfUrl($stored['pdf_url']);
+        $doc->setSunatCode($result->sunatCode);
+        $doc->setSunatMessage($result->sunatMessage);
+        $doc->setStatus(FiscalDocument::STATUS_SENT);
+
+        $this->recordAttempt($doc, $attemptNum, $providerName, FiscalDocument::STATUS_SENT, $result, null, $started);
+        $this->em->flush();
+        $this->notifyOrEnqueueSync($doc);
+        $this->enqueueGreStatusPoll($doc);
+        if ($doc->getFiscalFingerprint()) {
+            $this->queue->releaseClaim($doc->getFiscalFingerprint());
+        }
+
+        return true;
+    }
+
+    private function enqueueGreStatusPoll(FiscalDocument $doc): void
+    {
+        $this->queue->push(FiscalQueueService::QUEUE_STATUS_POLL, [
+            'document_uuid' => $doc->getDocumentUuid(),
+            'attempt' => 1,
+        ]);
+        $this->queue->scheduleRetry($doc->getDocumentUuid(), 30, FiscalQueueService::QUEUE_STATUS_POLL_RETRY);
     }
 
     /**
@@ -401,6 +474,8 @@ class FiscalEmitProcessor
         if (isset($data['document']) && is_array($data['document'])) {
             $data = $data['document'];
         }
+
+        $data = FiscalNoteSnapshotNormalizer::normalize($data);
 
         $class = FiscalDocumentClassResolver::resolve($data, $doc);
         $greenterDoc = $this->serializer->deserialize(json_encode($data), $class, 'json');

@@ -17,6 +17,8 @@ class FiscalQueueService
     public const QUEUE_WEBHOOK_SYNC = 'fiscal:webhook_sync';
     public const QUEUE_PSE_RETRY = 'fiscal:pse_retry';
     public const QUEUE_STATUS_POLL = 'fiscal:status_poll';
+    /** ZSET de reintentos programados (no mezclar con QUEUE_STATUS_POLL que es LIST). */
+    public const QUEUE_STATUS_POLL_RETRY = 'fiscal:status_poll:retry';
     public const QUEUE_AUDIT = 'fiscal:audit';
     private const KEY_WORKER_HEARTBEAT = 'fiscal:worker:heartbeat';
 

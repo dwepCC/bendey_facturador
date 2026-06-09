@@ -81,7 +81,7 @@ final class FiscalDocumentClassResolver
 
     public static function isTicketBased(string $documentClass): bool
     {
-        return in_array($documentClass, [Summary::class, Voided::class, Reversion::class], true);
+        return in_array($documentClass, [Summary::class, Voided::class, Reversion::class, Despatch::class], true);
     }
 
     public static function supportsPdf(string $documentClass): bool

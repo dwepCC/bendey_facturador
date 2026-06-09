@@ -20,6 +20,7 @@ class EmpresaDestroyRedisPurgeService
         FiscalQueueService::QUEUE_EMAIL,
         FiscalQueueService::QUEUE_WEBHOOK_SYNC,
         FiscalQueueService::QUEUE_STATUS_POLL,
+        FiscalQueueService::QUEUE_STATUS_POLL_RETRY,
         FiscalQueueService::QUEUE_AUDIT,
         FiscalQueueService::QUEUE_RETRY,
         FiscalQueueService::QUEUE_PSE_RETRY,

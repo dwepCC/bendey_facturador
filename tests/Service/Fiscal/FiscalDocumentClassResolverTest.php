@@ -31,4 +31,10 @@ class FiscalDocumentClassResolverTest extends TestCase
         self::assertSame(Summary::class, FiscalDocumentClassResolver::resolve(['tipoDoc' => 'RC'], $doc));
         self::assertSame(Voided::class, FiscalDocumentClassResolver::resolve(['_meta' => ['document_kind' => 'voided']], $doc));
     }
+
+    public function testIsTicketBasedIncludesDespatch(): void
+    {
+        self::assertTrue(FiscalDocumentClassResolver::isTicketBased(Despatch::class));
+        self::assertFalse(FiscalDocumentClassResolver::isTicketBased(Invoice::class));
+    }
 }

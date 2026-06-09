@@ -178,7 +178,7 @@ class FiscalWorkerCommand extends Command
                 'attempt' => 1,
             ]);
         }
-        foreach ($this->queue->dueRetries(FiscalQueueService::QUEUE_STATUS_POLL) as $uuid) {
+        foreach ($this->queue->dueRetries(FiscalQueueService::QUEUE_STATUS_POLL_RETRY) as $uuid) {
             $output->writeln('<comment>Retry status poll: ' . $uuid . '</comment>');
             $this->queue->push(FiscalQueueService::QUEUE_STATUS_POLL, [
                 'document_uuid' => $uuid,

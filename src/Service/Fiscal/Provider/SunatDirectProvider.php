@@ -8,6 +8,7 @@ use App\Entity\Empresa;
 use App\Entity\FiscalDocument;
 use App\Service\SeeFactory;
 use App\Service\Fiscal\PemCertificateValidator;
+use Greenter\Model\Despatch\Despatch;
 use Greenter\Model\DocumentInterface;
 use Greenter\Model\Response\CdrResponse;
 use Greenter\Report\XmlUtils;
@@ -33,6 +34,11 @@ class SunatDirectProvider extends AbstractFiscalProvider
 
     public function supports(FiscalDocument $doc, Empresa $empresa): bool
     {
+        $tipo = strtoupper(trim((string) $doc->getDocumentType()));
+        if (in_array($tipo, ['09', '31'], true)) {
+            return false;
+        }
+
         $mode = strtolower(trim((string) ($doc->getSendMode() ?? $empresa->getSendMode())));
         return $mode === '' || $mode === 'sunat_direct' || $mode === 'sunat';
     }
@@ -70,6 +76,10 @@ class SunatDirectProvider extends AbstractFiscalProvider
         string $documentClass,
         DocumentInterface $greenterDoc
     ): FiscalEmitResult {
+        if ($documentClass === Despatch::class) {
+            throw new \RuntimeException('GRE debe emitirse vía GreRestSunatProvider, no SOAP');
+        }
+
         $ruc = trim((string) $greenterDoc->getCompany()->getRuc());
         $see = $this->seeFactory->build($documentClass, $ruc);
         $result = $see->send($greenterDoc);

@@ -7,8 +7,10 @@ namespace App\Service\Fiscal;
 use App\Entity\FiscalDocument;
 use App\Repository\EmpresaRepository;
 use App\Repository\FiscalDocumentRepository;
+use App\Service\SeeApiFactory;
 use App\Service\SeeFactory;
 use Doctrine\ORM\EntityManagerInterface;
+use Greenter\Model\Despatch\Despatch;
 use Greenter\Model\Summary\Summary;
 use Greenter\Model\Voided\Reversion;
 use Greenter\Model\Voided\Voided;
@@ -16,7 +18,7 @@ use JMS\Serializer\SerializerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Consulta ticket SUNAT para resúmenes/bajas/reversiones (documentos asíncronos).
+ * Consulta ticket SUNAT para documentos asíncronos (resumen/baja/reversión/GRE REST).
  */
 class FiscalStatusPollProcessor
 {
@@ -28,6 +30,8 @@ class FiscalStatusPollProcessor
     private FiscalWebhookService $webhook;
     private FiscalQueueService $queue;
     private SeeFactory $seeFactory;
+    private SeeApiFactory $seeApiFactory;
+    private FiscalFileFetcher $fileFetcher;
     private LoggerInterface $logger;
     private ?FiscalDocumentPdfResolver $pdfResolver;
 
@@ -40,6 +44,8 @@ class FiscalStatusPollProcessor
         FiscalWebhookService $webhook,
         FiscalQueueService $queue,
         SeeFactory $seeFactory,
+        SeeApiFactory $seeApiFactory,
+        FiscalFileFetcher $fileFetcher,
         LoggerInterface $logger,
         ?FiscalDocumentPdfResolver $pdfResolver = null
     ) {
@@ -51,6 +57,8 @@ class FiscalStatusPollProcessor
         $this->webhook = $webhook;
         $this->queue = $queue;
         $this->seeFactory = $seeFactory;
+        $this->seeApiFactory = $seeApiFactory;
+        $this->fileFetcher = $fileFetcher;
         $this->logger = $logger;
         $this->pdfResolver = $pdfResolver;
     }
@@ -61,7 +69,9 @@ class FiscalStatusPollProcessor
         if ($doc === null || $doc->getTicket() === null || $doc->getTicket() === '') {
             return;
         }
-        if ($doc->getStatus() === FiscalDocument::STATUS_ACCEPTED || $doc->getStatus() === FiscalDocument::STATUS_OBSERVED) {
+        if ($doc->getStatus() === FiscalDocument::STATUS_ACCEPTED
+            || $doc->getStatus() === FiscalDocument::STATUS_OBSERVED
+            || $doc->getStatus() === FiscalDocument::STATUS_REJECTED) {
             return;
         }
 
@@ -71,37 +81,56 @@ class FiscalStatusPollProcessor
                 return;
             }
 
-            $see = $this->seeFactory->build($class, $ruc);
-            $result = $see->getStatus($doc->getTicket());
-            if (!method_exists($result, 'isSuccess') || !$result->isSuccess()) {
+            $empresa = $this->empresaRepo->findByRuc($ruc);
+
+            if ($class === Despatch::class) {
+                $api = $this->seeApiFactory->build($ruc);
+                $result = $api->getStatus($doc->getTicket());
+            } else {
+                $see = $this->seeFactory->build($class, $ruc);
+                $result = $see->getStatus($doc->getTicket());
+            }
+
+            $statusCode = method_exists($result, 'getCode') ? trim((string) $result->getCode()) : '';
+
+            // 98 = en proceso (GRE REST / SUNAT async).
+            if ($statusCode === '98') {
                 $this->scheduleRetry($doc, $attempt);
                 return;
             }
 
-            $signedXml = '';
-            if (method_exists($see, 'getFactory')) {
-                $signedXml = (string) $see->getFactory()->getLastXml();
+            if (!method_exists($result, 'isSuccess') || !$result->isSuccess()) {
+                if ($statusCode === '99' || $result->getError() !== null) {
+                    $this->applyPollRejection($doc, $result, $statusCode);
+                    return;
+                }
+                $this->scheduleRetry($doc, $attempt);
+                return;
             }
+
             $cdrZip = null;
             if (method_exists($result, 'getCdrZip') && $result->getCdrZip()) {
                 $cdrZip = $result->getCdrZip();
             }
 
-            if ($signedXml !== '') {
-                $stored = $this->storage->store(
-                    $doc->getTenantSlug(),
-                    $doc->getDocumentType(),
-                    $doc->getSeries(),
-                    $doc->getNumber(),
-                    null,
-                    $signedXml,
-                    $cdrZip
-                );
-                $doc->setXmlUrl($stored['xml_url']);
-                $doc->setXmlSignedUrl($stored['xml_signed_url']);
-                $doc->setCdrUrl($stored['cdr_url']);
-                if ($this->pdfResolver !== null) {
-                    $this->pdfResolver->generate($doc, true);
+            if ($cdrZip !== null && $cdrZip !== '') {
+                $signedXml = $this->resolveSignedXmlForPoll($doc, $class, $ruc);
+                if ($signedXml !== '') {
+                    $stored = $this->storage->store(
+                        $doc->getTenantSlug(),
+                        $doc->getDocumentType(),
+                        $doc->getSeries(),
+                        $doc->getNumber(),
+                        null,
+                        $signedXml,
+                        $cdrZip
+                    );
+                    $doc->setXmlUrl($stored['xml_url']);
+                    $doc->setXmlSignedUrl($stored['xml_signed_url']);
+                    $doc->setCdrUrl($stored['cdr_url']);
+                    if ($this->pdfResolver !== null) {
+                        $this->pdfResolver->generate($doc, true);
+                    }
                 }
             }
 
@@ -145,6 +174,25 @@ class FiscalStatusPollProcessor
         }
     }
 
+    private function resolveSignedXmlForPoll(FiscalDocument $doc, string $class, string $ruc): string
+    {
+        $fetched = $this->fileFetcher->fetch($doc->getXmlSignedUrl());
+        if ($fetched !== null && ($fetched['content'] ?? '') !== '') {
+            return (string) $fetched['content'];
+        }
+
+        if ($class !== Despatch::class) {
+            try {
+                $see = $this->seeFactory->build($class, $ruc);
+                return (string) $see->getFactory()->getLastXml();
+            } catch (\Throwable) {
+                return '';
+            }
+        }
+
+        return '';
+    }
+
     /**
      * @return array{0: string, 1: object, 2: string}
      */
@@ -175,7 +223,26 @@ class FiscalStatusPollProcessor
         $doc->setRetryCount($doc->getRetryCount() + 1);
         $this->em->flush();
         $delay = min(3600, 60 * $attempt);
-        $this->queue->scheduleRetry($doc->getDocumentUuid(), $delay, FiscalQueueService::QUEUE_STATUS_POLL);
+        $this->queue->scheduleRetry($doc->getDocumentUuid(), $delay, FiscalQueueService::QUEUE_STATUS_POLL_RETRY);
+    }
+
+    /**
+     * @param \Greenter\Model\Response\StatusResult|\Greenter\Model\Response\BaseResult $result
+     */
+    private function applyPollRejection(FiscalDocument $doc, object $result, string $statusCode): void
+    {
+        $err = method_exists($result, 'getError') ? $result->getError() : null;
+        $doc->setStatus(FiscalDocument::STATUS_REJECTED);
+        $doc->setRejectedAt(new \DateTimeImmutable());
+        if ($err !== null) {
+            $doc->setSunatCode((string) $err->getCode());
+            $doc->setSunatMessage((string) $err->getMessage());
+        } else {
+            $doc->setSunatCode($statusCode !== '' ? $statusCode : '99');
+            $doc->setSunatMessage('Rechazado por SUNAT');
+        }
+        $this->em->flush();
+        $this->notifyOrEnqueueSync($doc);
     }
 
     private function notifyOrEnqueueSync(FiscalDocument $doc): void

@@ -94,6 +94,15 @@ class Empresa
     #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $enabled = true;
 
+    #[ORM\Column(type: 'string', length: 120, nullable: true)]
+    private ?string $greClientId = null;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $greClientSecret = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $greOauthConfiguredAt = null;
+
     public function getRuc(): string
     {
         return $this->ruc;
@@ -215,4 +224,37 @@ class Empresa
     public function setRetryEnabled(bool $v): self { $this->retryEnabled = $v; return $this; }
     public function isEnabled(): bool { return $this->enabled; }
     public function setEnabled(bool $v): self { $this->enabled = $v; return $this; }
+
+    public function getGreClientId(): ?string
+    {
+        return $this->greClientId;
+    }
+
+    public function setGreClientId(?string $v): self
+    {
+        $this->greClientId = $v !== null && trim($v) !== '' ? trim($v) : null;
+        return $this;
+    }
+
+    public function getGreClientSecret(): ?string
+    {
+        return $this->greClientSecret;
+    }
+
+    public function setGreClientSecret(?string $v): self
+    {
+        $this->greClientSecret = $v !== null && $v !== '' ? $v : null;
+        return $this;
+    }
+
+    public function getGreOauthConfiguredAt(): ?\DateTimeImmutable
+    {
+        return $this->greOauthConfiguredAt;
+    }
+
+    public function setGreOauthConfiguredAt(?\DateTimeImmutable $v): self
+    {
+        $this->greOauthConfiguredAt = $v;
+        return $this;
+    }
 }

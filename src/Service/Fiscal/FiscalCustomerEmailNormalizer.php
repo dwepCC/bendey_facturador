@@ -102,7 +102,10 @@ final class FiscalCustomerEmailNormalizer
         if ($document instanceof BaseSale) {
             self::applyPdfSafeClient($document->getClient());
             self::applyPdfSafeCompany($document->getCompany());
-            self::applyPdfSafeClient($document->getSeller());
+            // Solo factura/boleta (Invoice) tiene vendedor; NC/ND (Note) no.
+            if (method_exists($document, 'getSeller')) {
+                self::applyPdfSafeClient($document->getSeller());
+            }
         } elseif (method_exists($document, 'getClient')) {
             self::applyPdfSafeClient($document->getClient());
         }

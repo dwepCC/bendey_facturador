@@ -15,6 +15,8 @@ parameters:
     env(mail_from): 'noreply@bendey.cloud'
     env(fiscal_storage_driver): 'local'
     env(fiscal_mail_from_name): 'Bendey'
+    greenter.templates_override_path: '%kernel.project_dir%/templates/greenter/xml'
+    greenter.templates_vendor_path: '%kernel.project_dir%/vendor/greenter/xml/src/Xml/Templates'
 
 services:
     # default configuration for services in *this* file
@@ -101,17 +103,28 @@ services:
         public: true
 
     Greenter\See:
+        class: App\Greenter\See
         public: true
         calls:
             - [setCachePath, ['%kernel.cache_dir%']]
 
+    App\Greenter\Factory\XmlBuilderResolverFactory:
+        arguments:
+            $overrideTemplatesPath: '%greenter.templates_override_path%'
+            $vendorTemplatesPath: '%greenter.templates_vendor_path%'
+
+    App\Greenter\ApiFactory: ~
+
     Greenter\Api:
+        class: App\Greenter\Api
         public: true
         arguments:
-            - auth: '%env(AUTH_URL)%'
-              cpe: '%env(API_URL)%'
+            $xmlBuilderResolverFactory: '@App\Greenter\Factory\XmlBuilderResolverFactory'
+            $endpoints:
+                auth: '%env(AUTH_URL)%'
+                cpe: '%env(API_URL)%'
         calls:
-            - [setBuilderOptions, [cache: '%kernel.cache_dir%']]
+            - [setBuilderOptions, [cache: '%kernel.cache_dir%', autoescape: false]]
 
     App\Service\FileConfigProvider:
         arguments:
@@ -146,9 +159,9 @@ services:
         public: true
         arguments:
             - '@App\Service\EnvConfigProvider'
-            - '@App\Service\ConfigProviderInterface'
             - '@App\Service\FileDataReader'
-            - '@Greenter\Api'
+            - '@App\Repository\EmpresaRepository'
+            - '%kernel.cache_dir%'
 
     App\EventSubscriber\TokenSubscriber:
         arguments:
@@ -196,10 +209,15 @@ services:
 
     App\Service\Fiscal\Provider\PseAuthBuilder: ~
 
+    App\Service\Fiscal\Provider\GreRestSunatProvider:
+        arguments:
+            $dataPath: '%data_path%'
+
     App\Service\Fiscal\Provider\FiscalProviderResolver:
         arguments:
             $providers:
                 - '@App\Service\Fiscal\Provider\ValidaPseProvider'
+                - '@App\Service\Fiscal\Provider\GreRestSunatProvider'
                 - '@App\Service\Fiscal\Provider\SunatDirectProvider'
 
     App\Controller\FiscalFilesController:

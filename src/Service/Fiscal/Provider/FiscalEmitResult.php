@@ -32,6 +32,9 @@ class FiscalEmitResult
     /** Documento válido ante SUNAT pero con observaciones (código >= 4000 o notas CDR). */
     public bool $observed = false;
 
+    /** Documento enviado con ticket; requiere poll antes de dar por aceptado. */
+    public bool $pendingTicketPoll = false;
+
     public function isAccepted(): bool
     {
         return $this->success && !$this->rejected && !$this->observed;

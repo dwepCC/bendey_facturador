@@ -51,6 +51,12 @@ class EmpresaRepository extends ServiceEntityRepository
                 'email_enabled' => $e->isEmailEnabled(),
                 'retry_enabled' => $e->isRetryEnabled(),
                 'enabled' => $e->isEnabled(),
+                'CLIENT_ID' => $e->getGreClientId(),
+                'CLIENT_SECRET' => $e->getGreClientSecret(),
+                'gre_client_id' => $e->getGreClientId(),
+                'gre_client_secret' => $e->getGreClientSecret(),
+                'gre_oauth_configured_at' => $e->getGreOauthConfiguredAt()
+                    ? $e->getGreOauthConfiguredAt()->format(DATE_ATOM) : null,
             ];
         }
         return $result;

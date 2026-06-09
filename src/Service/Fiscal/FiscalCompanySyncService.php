@@ -9,6 +9,8 @@ use App\Repository\EmpresaRepository;
 use App\Service\EmpresasService;
 use App\Service\Fiscal\Observability\FiscalAuditService;
 use App\Service\Fiscal\Provider\PseProviderRegistry;
+use App\Service\Gre\GreOAuthCredentialResolver;
+use App\Service\ConfigProviderInterface;
 use App\Entity\FiscalAuditLog;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -22,16 +24,19 @@ class FiscalCompanySyncService
     private EmpresaRepository $empresaRepository;
     private EntityManagerInterface $em;
     private ?FiscalAuditService $audit;
+    private ConfigProviderInterface $config;
 
     public function __construct(
         EmpresasService $empresasService,
         EmpresaRepository $empresaRepository,
         EntityManagerInterface $em,
+        ConfigProviderInterface $config,
         ?FiscalAuditService $audit = null
     ) {
         $this->empresasService = $empresasService;
         $this->empresaRepository = $empresaRepository;
         $this->em = $em;
+        $this->config = $config;
         $this->audit = $audit;
     }
 
@@ -128,6 +133,21 @@ class FiscalCompanySyncService
         if (!$hasCert) {
             throw new \InvalidArgumentException('SUNAT directa requiere certificado digital');
         }
+
+        $ambiente = strtolower(trim((string) ($payload['ambiente'] ?? $payload['environment'] ?? 'pruebas')));
+        if ($ambiente === 'produccion') {
+            $gre = is_array($payload['gre'] ?? null) ? $payload['gre'] : $payload;
+            $greId = trim((string) ($gre['client_id'] ?? $gre['gre_client_id'] ?? $payload['gre_client_id'] ?? $payload['CLIENT_ID'] ?? ''));
+            $greSecret = trim((string) ($gre['client_secret'] ?? $gre['gre_client_secret'] ?? $payload['gre_client_secret'] ?? $payload['CLIENT_SECRET'] ?? ''));
+            $existingGre = $existing !== null ? trim((string) ($existing->getGreClientId() ?? '')) : '';
+            $existingGreSecret = $existing !== null ? trim((string) ($existing->getGreClientSecret() ?? '')) : '';
+            if ($greId === '' && $existingGre === '') {
+                throw new \InvalidArgumentException('Producción requiere credenciales OAuth GRE (gre.client_id)');
+            }
+            if ($greSecret === '' && $existingGreSecret === '') {
+                throw new \InvalidArgumentException('Producción requiere credenciales OAuth GRE (gre.client_secret)');
+            }
+        }
     }
 
     /**
@@ -207,6 +227,18 @@ class FiscalCompanySyncService
             if (!empty($payload['logo_base64'])) {
                 $entry['logo_base64'] = (string) $payload['logo_base64'];
             }
+            $gre = is_array($payload['gre'] ?? null) ? $payload['gre'] : $payload;
+            $greId = trim((string) ($gre['client_id'] ?? $gre['gre_client_id'] ?? $payload['gre_client_id'] ?? $payload['CLIENT_ID'] ?? ''));
+            if ($greId !== '') {
+                $entry['gre_client_id'] = $greId;
+                $entry['CLIENT_ID'] = $greId;
+            }
+            $greSecret = trim((string) ($gre['client_secret'] ?? $gre['gre_client_secret'] ?? $payload['gre_client_secret'] ?? $payload['CLIENT_SECRET'] ?? ''));
+            if ($greSecret !== '') {
+                $entry['gre_client_secret'] = $greSecret;
+                $entry['CLIENT_SECRET'] = $greSecret;
+                $entry['gre_oauth_configured_at'] = (new \DateTimeImmutable())->format(DATE_ATOM);
+            }
         }
 
         foreach (['automatic_send', 'email_enabled', 'retry_enabled', 'enabled'] as $flag) {
@@ -226,6 +258,8 @@ class FiscalCompanySyncService
         if ($entity === null) {
             return ['connection_status' => 'configuration_missing'];
         }
+        $greConfigured = GreOAuthCredentialResolver::isConfigured($entity, $this->config);
+
         return [
             'ruc' => $entity->getRuc(),
             'tenant_id' => $entity->getTenantId(),
@@ -242,6 +276,12 @@ class FiscalCompanySyncService
             'pse_token_configured' => $entity->resolvePseToken() !== '',
             'sol_configured' => trim($entity->getSolUser()) !== '' && trim($entity->getSolPass()) !== '',
             'certificate_configured' => $entity->getCertificate() !== null && trim((string) $entity->getCertificate()) !== '',
+            'gre_oauth_configured' => $greConfigured,
+            'gre_oauth_configured_at' => $entity->getGreOauthConfiguredAt()
+                ? $entity->getGreOauthConfiguredAt()->format(DATE_ATOM) : null,
+            'gre_oauth_source' => trim((string) ($entity->getGreClientId() ?? '')) !== '' ? 'empresa' : (
+                strtolower(trim($entity->getAmbiente())) === 'produccion' ? null : 'nubefact_test_fallback'
+            ),
             'enabled' => $entity->isEnabled(),
         ];
     }

@@ -182,7 +182,7 @@ Abrir el navegador, y dirígete a http://localhost:8000/
 
 - [Conectando lycet desde nodejs](https://github.com/giansalex/lycet-demo-js)
 - **Operaciones fiscales SaaS:** [../backend_go/docs/FISCAL-COMMANDS-AND-CRON.md](../backend_go/docs/FISCAL-COMMANDS-AND-CRON.md) — workers, colas Redis y comandos
-- **Guía técnica:** [../backend_go/docs/FISCAL-OPERATIONS.md](../backend_go/docs/FISCAL-OPERATIONS.md)
+- **GRE Transportista (31) — override plantilla SUNAT 3383:** [docs/GRE31-DESPATCH-PARTY-OVERRIDE.md](docs/GRE31-DESPATCH-PARTY-OVERRIDE.md)
 
 Puedes visitar [greenter en postman](https://www.postman.com/greenter/) que contiene ejemplos del envío de algunos comprobantes.
 

@@ -146,6 +146,7 @@ class FiscalDocumentPdfResolver
         if (isset($data['document']) && is_array($data['document'])) {
             $data = $data['document'];
         }
+        $data = FiscalNoteSnapshotNormalizer::normalize($data);
         $class = FiscalDocumentClassResolver::resolve($data, $doc);
         $greenterDoc = $this->serializer->deserialize(json_encode($data), $class, 'json');
 
