@@ -727,7 +727,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         datetime?: array{
  *             default_format?: scalar|Param|null, // Default: "Y-m-d\\TH:i:sP"
  *             default_deserialization_formats?: list<scalar|Param|null>,
- *             default_timezone?: scalar|Param|null, // Default: "UTC"
+ *             default_timezone?: scalar|Param|null, // Default: "Europe/Berlin"
  *             cdata?: scalar|Param|null, // Default: true
  *         },
  *         array_collection?: array{
@@ -827,7 +827,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             datetime?: array{
  *                 default_format?: scalar|Param|null, // Default: "Y-m-d\\TH:i:sP"
  *                 default_deserialization_formats?: list<scalar|Param|null>,
- *                 default_timezone?: scalar|Param|null, // Default: "UTC"
+ *                 default_timezone?: scalar|Param|null, // Default: "Europe/Berlin"
  *                 cdata?: scalar|Param|null, // Default: true
  *             },
  *             array_collection?: array{
