@@ -32,6 +32,13 @@ class FiscalDashboardController
             ],
             $content
         );
-        return new Response($content, 200, ['Content-Type' => 'text/html; charset=utf-8']);
+        // El JS del dashboard va inline en el HTML: evitamos que el navegador cachee
+        // esta respuesta para que los cambios se vean siempre al recargar. El CSS ya
+        // tiene cache-busting por filemtime en FiscalUiAssets::stylesheetHref().
+        return new Response($content, 200, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
     }
 }

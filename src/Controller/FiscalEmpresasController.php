@@ -33,6 +33,11 @@ class FiscalEmpresasController
             $content
         );
 
-        return new Response($content, 200, ['Content-Type' => 'text/html; charset=utf-8']);
+        // JS inline: no cachear para que los cambios se vean al recargar (CSS con cache-busting aparte).
+        return new Response($content, 200, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ]);
     }
 }
