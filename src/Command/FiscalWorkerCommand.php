@@ -11,6 +11,7 @@ use App\Service\Fiscal\FiscalQueueService;
 use App\Service\Fiscal\FiscalStatusPollProcessor;
 use App\Service\Fiscal\FiscalWebhookSyncProcessor;
 use App\Service\Fiscal\Observability\FiscalAuditService;
+use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -32,6 +33,7 @@ class FiscalWorkerCommand extends Command
     private FiscalAuditService $audit;
     private LoggerInterface $logger;
     private FiscalOrphanRecoveryService $orphanRecovery;
+    private EntityManagerInterface $em;
     private int $orphanSweepCounter = 0;
 
     public function __construct(
@@ -42,7 +44,8 @@ class FiscalWorkerCommand extends Command
         FiscalStatusPollProcessor $statusPollProcessor,
         FiscalAuditService $audit,
         LoggerInterface $logger,
-        FiscalOrphanRecoveryService $orphanRecovery
+        FiscalOrphanRecoveryService $orphanRecovery,
+        EntityManagerInterface $em
     ) {
         parent::__construct();
         $this->queue = $queue;
@@ -53,6 +56,7 @@ class FiscalWorkerCommand extends Command
         $this->audit = $audit;
         $this->logger = $logger;
         $this->orphanRecovery = $orphanRecovery;
+        $this->em = $em;
     }
 
     protected function configure(): void
@@ -74,6 +78,18 @@ class FiscalWorkerCommand extends Command
         $onlyQueue = $input->getOption('queue');
 
         do {
+            // El worker vive indefinidamente y Doctrine mantiene en memoria (identity
+            // map) toda entidad que haya cargado. Sin este clear, la Empresa leída en
+            // el primer ciclo se reutiliza para siempre: si alguien corrige el usuario
+            // SOL desde el panel, el worker sigue firmando con las credenciales viejas
+            // y SUNAT responde "El Usuario ingresado no existe" hasta que se reinicie
+            // el contenedor. Pasó en producción (RUC 10481656961, agosto 2026).
+            //
+            // Va al inicio del ciclo, antes de tomar ningún job: cada procesador vuelve
+            // a cargar lo que necesita, así que ninguna referencia queda desasociada a
+            // mitad de trabajo.
+            $this->clearEntityManager($output);
+
             $this->processDueRetries($output);
             $this->recoverOrphansIfDue($output);
             $this->queue->touchWorkerHeartbeat();
@@ -100,6 +116,26 @@ class FiscalWorkerCommand extends Command
         } while (!$once);
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Vacía el identity map de Doctrine para que el siguiente ciclo lea de la base y
+     * no de memoria. Si el EntityManager quedó cerrado por un error previo, no se
+     * puede limpiar: se avisa y se sigue, porque tumbar el worker dejaría de emitir
+     * todos los comprobantes de todos los tenants.
+     */
+    private function clearEntityManager(OutputInterface $output): void
+    {
+        try {
+            if ($this->em->isOpen()) {
+                $this->em->clear();
+            }
+        } catch (\Throwable $e) {
+            $this->logger->warning('No se pudo limpiar el EntityManager del worker', [
+                'error' => $e->getMessage(),
+            ]);
+            $output->writeln('<comment>EntityManager no limpiado: ' . $e->getMessage() . '</comment>');
+        }
     }
 
     /**

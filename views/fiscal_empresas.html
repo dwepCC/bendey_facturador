@@ -22,6 +22,16 @@
     .destroy-modal .actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }
     .destroy-modal input { width: 100%; margin-top: .75rem; padding: .5rem .65rem; border: 1px solid #cbd5e1; border-radius: 8px; }
     .col-actions { white-space: nowrap; }
+    .col-actions .btn + .btn { margin-left: .35rem; }
+    .test-conn-btn { background: #0f766e; color: #fff; border: none; }
+    .test-conn-btn:hover:not(:disabled) { background: #115e59; }
+    .test-conn-btn:disabled { opacity: .6; cursor: default; }
+    .conn-result {
+      margin: 0 0 .85rem; padding: .65rem .85rem; border-radius: 8px;
+      font-size: .9rem; line-height: 1.45; border: 1px solid transparent; word-break: break-word;
+    }
+    .conn-ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+    .conn-fail { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
   </style>
 </head>
 <body class="fiscal-ui">
@@ -70,6 +80,7 @@
     <p class="hint-muted dash-hint">El rango de fechas filtra por <strong>última verificación de conexión</strong>.</p>
 
     <div class="dash-card">
+      <div id="connResult" class="conn-result" hidden></div>
       <div class="table-wrap">
         <table class="dash-table">
           <thead>
@@ -189,6 +200,57 @@
       return r;
     }
 
+    /**
+     * Prueba la conexión con SUNAT de una empresa.
+     *
+     * Es una CONSULTA: el backend autentica contra SUNAT con el usuario SOL y el
+     * certificado guardados, pero no emite ningún comprobante. Sirve para saber si
+     * las credenciales sirven ANTES de que un restaurante intente facturar.
+     */
+    async function testConnection(btn) {
+      const ruc = btn.getAttribute('data-ruc');
+      if (!ruc) return;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Probando…';
+      try {
+        const r = await apiFetch(url('/test-connection'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ruc: ruc })
+        });
+        const data = await r.json().catch(() => ({}));
+        const ok = r.ok && (data.success === true || data.connection_status === 'connected');
+        const message = data.message || data.error || (ok ? 'Conexión correcta' : 'Conexión fallida');
+        showConnectionResult(ruc, ok, message);
+        // Recarga la lista para que la columna "Conexión" y "Última verificación"
+        // muestren lo que el backend acaba de guardar, sin quedar desfasadas.
+        await loadList();
+      } catch (e) {
+        showConnectionResult(ruc, false, e && e.message ? e.message : 'Error al probar la conexión');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+
+    /**
+     * Muestra el resultado de forma persistente. Un toast se iría en segundos y el
+     * mensaje textual de SUNAT es justo lo que uno necesita releer mientras corrige
+     * credenciales.
+     */
+    function showConnectionResult(ruc, ok, message) {
+      const box = qs('connResult');
+      if (!box) return;
+      box.className = 'conn-result ' + (ok ? 'conn-ok' : 'conn-fail');
+      box.innerHTML =
+        '<strong>' + escapeHtml(ruc) + ' — ' +
+        (ok ? 'SUNAT respondió correctamente' : 'SUNAT rechazó la conexión') +
+        '</strong><br>' + escapeHtml(message);
+      box.hidden = false;
+      box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
     function openDestroyModal(row) {
       destroyTarget = row;
       qs('destroyRucLabel').textContent = row.ruc || '';
@@ -286,7 +348,10 @@
             <td>${formatDate(row.last_connection_check)}</td>
             <td>${escapeHtml(row.sol_user || '—')}</td>
             <td>${row.enabled ? 'Sí' : 'No'}</td>
-            <td class="col-actions"><button type="button" class="btn btn-danger btn-sm destroy-btn" data-ruc="${rucEsc}">Eliminar Empresa Fiscal</button></td>
+            <td class="col-actions">
+              <button type="button" class="btn btn-sm test-conn-btn" data-ruc="${rucEsc}" title="Consulta a SUNAT con el usuario SOL y el certificado guardados. No emite ningún comprobante.">Probar conexión</button>
+              <button type="button" class="btn btn-danger btn-sm destroy-btn" data-ruc="${rucEsc}">Eliminar Empresa Fiscal</button>
+            </td>
           </tr>`;
         }).join('');
         tbody.querySelectorAll('.destroy-btn').forEach(btn => {
@@ -295,6 +360,9 @@
             const row = items.find(i => String(i.ruc) === ruc);
             if (row) openDestroyModal(row);
           });
+        });
+        tbody.querySelectorAll('.test-conn-btn').forEach(btn => {
+          btn.addEventListener('click', () => testConnection(btn));
         });
       }
       const from = pageState.total ? pageState.offset + 1 : 0;

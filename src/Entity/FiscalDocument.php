@@ -164,7 +164,13 @@ class FiscalDocument
     public function setTenantSlug(string $v): self { $this->tenantSlug = $v; return $this; }
     public function getSaleId(): int { return $this->saleId; }
     public function setSaleId(int $v): self { $this->saleId = $v; return $this; }
-    public function getDocumentType(): string { return $this->documentType; }
+    /**
+     * Devuelve '' si aún no se asignó. Una propiedad tipada sin default lanza
+     * "must not be accessed before initialization" al leerla en una entidad recién
+     * construida: eso rompía la prueba de conexión, que arma un FiscalDocument vacío
+     * solo para preguntarle al proveedor si soporta a esa empresa.
+     */
+    public function getDocumentType(): string { return $this->documentType ?? ''; }
     public function setDocumentType(string $v): self { $this->documentType = $v; return $this; }
     public function getSeries(): string { return $this->series; }
     public function setSeries(string $v): self { $this->series = $v; return $this; }

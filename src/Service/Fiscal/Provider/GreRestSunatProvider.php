@@ -149,7 +149,10 @@ class GreRestSunatProvider extends AbstractFiscalProvider
             $out->success = true;
         } elseif ($result !== null && method_exists($result, 'getError') && $result->getError()) {
             $err = $result->getError();
-            $out->sunatCode = method_exists($err, 'getCode') ? (string) $err->getCode() : 'error';
+            // El código real de SUNAT, no el literal 'error': sin él, en la base y en
+            // el panel un rechazo de credenciales se ve igual que un XML inválido.
+            $greCode = method_exists($err, 'getCode') ? trim((string) $err->getCode()) : '';
+            $out->sunatCode = $greCode !== '' ? $greCode : 'error';
             $out->sunatMessage = method_exists($err, 'getMessage') ? (string) $err->getMessage() : 'Error GRE REST';
             $out->rejected = true;
         }
