@@ -66,7 +66,7 @@ class FiscalStatusPollProcessor
     public function processByUuid(string $documentUuid, int $attempt = 1): void
     {
         $doc = $this->repo->findOneBy(['documentUuid' => $documentUuid]);
-        if ($doc === null || $doc->getTicket() === null || $doc->getTicket() === '') {
+        if ($doc === null) {
             return;
         }
         if ($doc->getStatus() === FiscalDocument::STATUS_ACCEPTED
@@ -77,7 +77,20 @@ class FiscalStatusPollProcessor
 
         try {
             [$class, $greenterDoc, $ruc] = $this->deserialize($doc);
+
             if (!FiscalDocumentClassResolver::isTicketBased($class)) {
+                // Factura/Boleta/NC/ND no tienen ticket asíncrono: SUNAT responde el CDR en el
+                // mismo envío. "Consultar estado" acá significa preguntarle a SUNAT por el
+                // comprobante ya emitido (getStatusCdr) — nunca reenviarlo. Reenviar (retry/force)
+                // es lo que dispara el fault SUNAT 1033 "registrado previamente con otros datos"
+                // cuando SUNAT ya lo tiene y el CDR se perdió localmente por timeout — el remedio
+                // documentado por SUNAT y por otros proveedores de facturación es consultar, no
+                // reenviar.
+                $this->verifyByCdrConsult($doc, $ruc);
+                return;
+            }
+
+            if ($doc->getTicket() === null || $doc->getTicket() === '') {
                 return;
             }
 
@@ -171,6 +184,116 @@ class FiscalStatusPollProcessor
                 'error' => $e->getMessage(),
             ]);
             $this->scheduleRetry($doc, $attempt);
+        }
+    }
+
+    /**
+     * Consulta REAL a SUNAT (getStatusCdr, servicio FE_CONSULTA_CDR) para Factura/Boleta/NC/ND
+     * ya emitidas — sin reenviar nada. Solo actualiza el estado local cuando SUNAT confirma algo
+     * concreto (aceptado/observado/rechazado); si no confirma nada útil, no toca `status` — no
+     * hay evidencia para cambiarlo en ningún sentido, y es preferible dejarlo como estaba a
+     * adivinar.
+     */
+    private function verifyByCdrConsult(FiscalDocument $doc, string $ruc): void
+    {
+        $empresa = $this->empresaRepo->findByRuc($ruc);
+        if ($empresa === null) {
+            $this->logger->warning('fiscal_status_verify_no_empresa', [
+                'uuid' => $doc->getDocumentUuid(),
+                'ruc' => $ruc,
+            ]);
+            return;
+        }
+        // SUNAT solo expone el servicio de consulta CDR en producción — no hay endpoint de
+        // consulta para el ambiente de pruebas/beta.
+        if (strtolower(trim($empresa->getAmbiente())) !== 'produccion') {
+            $this->logger->info('fiscal_status_verify_skipped_no_prod', ['uuid' => $doc->getDocumentUuid()]);
+            return;
+        }
+
+        try {
+            $ws = new \Greenter\Ws\Services\SoapClient(\Greenter\Ws\Services\SunatEndpoints::FE_CONSULTA_CDR . '?wsdl');
+            $ws->setCredentials($empresa->getSolUser(), $empresa->getSolPass());
+            $consultService = new \Greenter\Ws\Services\ConsultCdrService();
+            $consultService->setClient($ws);
+
+            $result = $consultService->getStatusCdr($ruc, $doc->getDocumentType(), $doc->getSeries(), (int) $doc->getNumber());
+        } catch (\Throwable $e) {
+            $this->logger->error('fiscal_status_verify_failed', [
+                'uuid' => $doc->getDocumentUuid(),
+                'error' => $e->getMessage(),
+            ]);
+            return;
+        }
+
+        if (!$result->isSuccess()) {
+            $err = $result->getError();
+            $this->logger->info('fiscal_status_verify_no_success', [
+                'uuid' => $doc->getDocumentUuid(),
+                'sunat_code' => $err !== null ? $err->getCode() : null,
+                'sunat_message' => $err !== null ? $err->getMessage() : null,
+            ]);
+            return;
+        }
+
+        $cdr = $result->getCdrResponse();
+        $classified = \App\Service\Fiscal\Provider\SunatCdrClassifier::fromCdrResponse($cdr);
+        if (!$classified['success'] && !$classified['rejected']) {
+            // Ni aceptado ni rechazado con certeza — no hay CDR clasificable, no se toca el estado.
+            return;
+        }
+
+        if ($result->getCdrZip()) {
+            $signedXml = $this->resolveSignedXmlForPoll($doc, \Greenter\Model\Sale\Invoice::class, $ruc);
+            $stored = $this->storage->store(
+                $doc->getTenantSlug(),
+                $doc->getDocumentType(),
+                $doc->getSeries(),
+                $doc->getNumber(),
+                null,
+                $signedXml !== '' ? $signedXml : null,
+                $result->getCdrZip()
+            );
+            $doc->setCdrUrl($stored['cdr_url']);
+            if ($signedXml !== '' && ($doc->getXmlSignedUrl() === null || $doc->getXmlSignedUrl() === '')) {
+                $doc->setXmlSignedUrl($stored['xml_signed_url']);
+            }
+        }
+
+        $doc->setSunatCode($classified['code']);
+        $doc->setSunatMessage($classified['message']);
+        if ($classified['observed']) {
+            $doc->setStatus(FiscalDocument::STATUS_OBSERVED);
+            $doc->setAcceptedAt($doc->getAcceptedAt() ?? new \DateTimeImmutable());
+        } elseif ($classified['success']) {
+            $doc->setStatus(FiscalDocument::STATUS_ACCEPTED);
+            $doc->setAcceptedAt($doc->getAcceptedAt() ?? new \DateTimeImmutable());
+        } elseif ($classified['rejected']) {
+            $doc->setStatus(FiscalDocument::STATUS_REJECTED);
+            $doc->setRejectedAt($doc->getRejectedAt() ?? new \DateTimeImmutable());
+        }
+
+        if ($this->pdfResolver !== null && ($doc->getPdfUrl() === null || $doc->getPdfUrl() === '')) {
+            try {
+                $this->pdfResolver->generate($doc, true);
+            } catch (\Throwable $e) {
+                $this->logger->warning('fiscal_pdf_generate_after_verify_failed', [
+                    'uuid' => $doc->getDocumentUuid(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $this->em->flush();
+        $this->logger->info('fiscal_status_verified', [
+            'uuid' => $doc->getDocumentUuid(),
+            'status' => $doc->getStatus(),
+            'sunat_code' => $classified['code'],
+        ]);
+        $this->notifyOrEnqueueSync($doc);
+
+        if (in_array($doc->getStatus(), [FiscalDocument::STATUS_ACCEPTED, FiscalDocument::STATUS_OBSERVED], true)) {
+            FiscalEmailDispatchHelper::enqueueOrMarkUnavailable($doc, $empresa, $this->queue);
         }
     }
 
