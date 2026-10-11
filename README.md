@@ -151,6 +151,9 @@ php bin/console app:admin:seed
 php bin/console app:fiscal:worker
 ```
 
+> **Requisitos de despliegue obligatorios** (worker en marcha, `ERP_WEBHOOK_KEY` == `INTERNAL_API_KEY` del backend,
+> wkhtmltopdf con `--enable-local-file-access`): ver [docs/REQUISITOS-DESPLIEGUE.md](docs/REQUISITOS-DESPLIEGUE.md).
+
 **Credenciales por defecto del seed:**
 
 | Campo | Valor |

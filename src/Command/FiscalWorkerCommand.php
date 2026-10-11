@@ -12,6 +12,7 @@ use App\Service\Fiscal\FiscalStatusPollProcessor;
 use App\Service\Fiscal\FiscalWebhookSyncProcessor;
 use App\Service\Fiscal\Observability\FiscalAuditService;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -34,6 +35,7 @@ class FiscalWorkerCommand extends Command
     private LoggerInterface $logger;
     private FiscalOrphanRecoveryService $orphanRecovery;
     private EntityManagerInterface $em;
+    private ?ManagerRegistry $registry;
     private int $orphanSweepCounter = 0;
 
     public function __construct(
@@ -45,8 +47,10 @@ class FiscalWorkerCommand extends Command
         FiscalAuditService $audit,
         LoggerInterface $logger,
         FiscalOrphanRecoveryService $orphanRecovery,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        ?ManagerRegistry $registry = null
     ) {
+        $this->registry = $registry;
         parent::__construct();
         $this->queue = $queue;
         $this->emitProcessor = $emitProcessor;
@@ -129,6 +133,8 @@ class FiscalWorkerCommand extends Command
         try {
             if ($this->em->isOpen()) {
                 $this->em->clear();
+            } else {
+                $this->resetManagerIfClosed($output);
             }
         } catch (\Throwable $e) {
             $this->logger->warning('No se pudo limpiar el EntityManager del worker', [
@@ -194,6 +200,21 @@ class FiscalWorkerCommand extends Command
                 'trace' => $e->getTraceAsString(),
             ]);
             $output->writeln('<error>' . $queue . ' ' . $uuid . ': ' . $e->getMessage() . '</error>');
+            // Un fallo de Doctrine deja el EntityManager cerrado y el siguiente job de
+            // cualquier tenant moriria con "The EntityManager is closed". Se recrea.
+            $this->resetManagerIfClosed($output);
+        }
+    }
+
+    private function resetManagerIfClosed(OutputInterface $output): void
+    {
+        try {
+            if (!$this->em->isOpen() && $this->registry !== null) {
+                $this->registry->resetManager();
+                $output->writeln('<comment>EntityManager recreado tras error</comment>');
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('fiscal_worker_reset_manager_failed', ['error' => $e->getMessage()]);
         }
     }
 

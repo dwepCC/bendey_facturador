@@ -60,6 +60,15 @@
                                         <strong>Dirección: </strong>{{ cp.address.direccion }}
                                     </td>
                                 </tr>
+                                {% if cp.email or cp.telephone %}
+                                <tr>
+                                    <td align="left">
+                                        {% if cp.telephone %}<strong>Teléfono: </strong>{{ cp.telephone }}{% endif %}
+                                        {% if cp.telephone and cp.email %}&nbsp;&nbsp;{% endif %}
+                                        {% if cp.email %}<strong>Correo: </strong>{{ cp.email }}{% endif %}
+                                    </td>
+                                </tr>
+                                {% endif %}
                                 <tr>
                                     <td align="left">
                                         {{ params.user.header|raw }}
@@ -76,7 +85,9 @@
                 <table width="100%" border="0" cellpadding="5" cellspacing="0">
                     <tbody><tr>
                         <td width="60%" align="left"><strong>Razón Social:</strong>  {{ cl.rznSocial }}</td>
-                        <td width="40%" align="left"><strong>{{ cl.tipoDoc|catalog('06') }}:</strong>  {{ cl.numDoc }}</td>
+                        {# «Clientes Varios» (sin documento) se muestra con el mismo valor que el ERP y el ticket local (99999999); el valor de 11 dígitos solo existe en el XML. #}
+                        {% set numDocShown = (cl.tipoDoc == '0' and cl.numDoc in ['99999999999', '00000000000']) ? '99999999' : cl.numDoc %}
+                        <td width="40%" align="left"><strong>{{ cl.tipoDoc|catalog('06') }}:</strong>  {{ numDocShown }}</td>
                     </tr>
                     <tr>
                         <td width="60%" align="left">
@@ -167,20 +178,29 @@
                         </table>
                         <table width="100%" border="0" cellpadding="5" cellspacing="0">
                             <tbody>
+                            {% set extraLegends = (doc.legends ?? [])|filter(l => l.code != '1000') %}
+                            {% if extraLegends|length > 0 %}
                             <tr class="border_top">
                                 <td width="30%" style="font-size: 10px;">
                                     LEYENDA:
                                 </td>
                                 <td width="70%" style="font-size: 10px;">
                                     <p>
-                                        {% for leg in doc.legends %}
-                                        {% if leg.code != '1000' %}
-                                            {{ leg.value }}<br>
-                                        {% endif %}
-                                        {% endfor %}
+                                        {% for l in extraLegends %}{{ l.value }}<br>{% endfor %}
                                     </p>
                                 </td>
                             </tr>
+                            {% endif %}
+                            {% if isInvoice and doc.formaPago is defined and doc.formaPago and doc.formaPago.tipo is defined and doc.formaPago.tipo %}
+                            <tr class="border_top">
+                                <td width="30%" style="font-size: 10px;">
+                                    FORMA DE PAGO:
+                                </td>
+                                <td width="70%" style="font-size: 10px;">
+                                    {{ doc.formaPago.tipo }}
+                                </td>
+                            </tr>
+                            {% endif %}
                             {% if isInvoice and doc.detraccion %}
                             <tr class="border_top">
                                 <td width="30%" style="font-size: 10px;">

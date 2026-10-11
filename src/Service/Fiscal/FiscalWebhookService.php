@@ -7,6 +7,7 @@ namespace App\Service\Fiscal;
 use App\Entity\FiscalDocument;
 use App\Entity\FiscalWebhookEvent;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -18,13 +19,16 @@ class FiscalWebhookService
     private ?string $erpWebhookKey;
     private LoggerInterface $logger;
     private EntityManagerInterface $em;
+    private ?ManagerRegistry $registry;
 
     public function __construct(
         ?string $erpWebhookUrl,
         ?string $erpWebhookKey,
         LoggerInterface $logger,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        ?ManagerRegistry $registry = null
     ) {
+        $this->registry = $registry;
         $this->erpWebhookUrl = $erpWebhookUrl !== '' && $erpWebhookUrl !== null ? $erpWebhookUrl : null;
         $this->erpWebhookKey = $erpWebhookKey !== '' && $erpWebhookKey !== null ? $erpWebhookKey : null;
         $this->logger = $logger;
@@ -67,9 +71,22 @@ class FiscalWebhookService
         }
 
         $eventKey = (string) $payload['event_id'];
-        $log = new FiscalWebhookEvent();
-        $log->setEventKey($eventKey);
-        $log->setDocumentUuid($doc->getDocumentUuid());
+        // Un reintento del webhook repite el mismo event_key (el documento no cambio):
+        // se reutiliza la fila en vez de insertar un duplicado, porque el INSERT que
+        // viola la unicidad cierra el EntityManager y mata el siguiente envio del worker.
+        $log = null;
+        try {
+            if ($this->em->isOpen()) {
+                $log = $this->em->getRepository(FiscalWebhookEvent::class)->findOneBy(['eventKey' => $eventKey]);
+            }
+        } catch (\Throwable $e) {
+            $log = null;
+        }
+        if (!$log instanceof FiscalWebhookEvent) {
+            $log = new FiscalWebhookEvent();
+            $log->setEventKey($eventKey);
+            $log->setDocumentUuid($doc->getDocumentUuid());
+        }
         $log->setPayloadHash(hash('sha256', $body));
 
         $headers = ['Content-Type: application/json'];
@@ -101,11 +118,17 @@ class FiscalWebhookService
             $log->setDeliveredAt(new \DateTimeImmutable());
         }
         try {
+            $this->ensureOpenManager();
             $this->em->persist($log);
             $this->em->flush();
         } catch (\Throwable $e) {
-            // duplicate event_key = idempotent webhook log
-            $this->em->clear(FiscalWebhookEvent::class);
+            // El log de auditoria nunca debe tumbar el envio: se registra y se rehabilita
+            // el EntityManager si el error lo dejo cerrado.
+            $this->logger->warning('fiscal_webhook_log_failed', [
+                'uuid' => $doc->getDocumentUuid(),
+                'error' => $e->getMessage(),
+            ]);
+            $this->ensureOpenManager();
         }
 
         if ($respBody === false || $code >= 400) {
@@ -115,6 +138,14 @@ class FiscalWebhookService
             ]);
             throw new \RuntimeException('webhook HTTP ' . $code);
         }
+    }
+
+    private function ensureOpenManager(): void
+    {
+        if ($this->em->isOpen() || $this->registry === null) {
+            return;
+        }
+        $this->registry->resetManager();
     }
 
     private function eventId(FiscalDocument $doc): string

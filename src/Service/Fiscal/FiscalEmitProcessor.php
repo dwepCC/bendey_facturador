@@ -156,9 +156,9 @@ class FiscalEmitProcessor
                 throw new \RuntimeException('Emisión sin XML firmado');
             }
 
-            if (($result->pdf === null || $result->pdf === '') && FiscalDocumentClassResolver::supportsPdf($documentClass)) {
-                $result->pdf = $this->pdfService->render($documentClass, $greenterDoc, $signedXml);
-            }
+            // El PDF NO condiciona el estado fiscal: el XML ya fue enviado y el CDR recibido.
+            // Si wkhtmltopdf falla, se registra y el PDF queda pendiente (se regenera al pedirlo).
+            $this->renderPdfSafe($doc, $result, $documentClass, $greenterDoc, $signedXml);
 
             $stored = $this->storage->store(
                 $doc->getTenantSlug(),
@@ -363,9 +363,7 @@ class FiscalEmitProcessor
             return false;
         }
 
-        if (($result->pdf === null || $result->pdf === '') && FiscalDocumentClassResolver::supportsPdf($documentClass)) {
-            $result->pdf = $this->pdfService->render($documentClass, $greenterDoc, $signedXml);
-        }
+        $this->renderPdfSafe($doc, $result, $documentClass, $greenterDoc, $signedXml);
 
         $stored = $this->storage->store(
             $doc->getTenantSlug(),
@@ -398,6 +396,45 @@ class FiscalEmitProcessor
         }
 
         return true;
+    }
+
+    /**
+     * Genera el PDF sin propagar errores: un fallo de wkhtmltopdf deja el PDF pendiente
+     * (pdfUrl vacio, se regenera bajo demanda / FiscalDocumentPdfResolver) pero jamas altera
+     * el estado fiscal ni provoca un reenvio a SUNAT.
+     */
+    private function renderPdfSafe(
+        FiscalDocument $doc,
+        FiscalEmitResult $result,
+        string $documentClass,
+        DocumentInterface $greenterDoc,
+        string $signedXml
+    ): void {
+        if (($result->pdf !== null && $result->pdf !== '') || !FiscalDocumentClassResolver::supportsPdf($documentClass)) {
+            return;
+        }
+        // FISCAL_EMIT_PDF=0 omite el PDF en la emision (el PDF se genera bajo demanda / localmente en el panel).
+        $flag = $_ENV['FISCAL_EMIT_PDF'] ?? $_SERVER['FISCAL_EMIT_PDF'] ?? getenv('FISCAL_EMIT_PDF');
+        if ($flag !== false && $flag !== null && in_array(strtolower(trim((string) $flag)), ['0', 'false', 'off', 'no'], true)) {
+            return;
+        }
+        try {
+            $result->pdf = $this->pdfService->render($documentClass, $greenterDoc, $signedXml);
+        } catch (\Throwable $e) {
+            $result->pdf = null;
+            $this->logger->warning('fiscal_pdf_pending', [
+                'uuid' => $doc->getDocumentUuid(),
+                'error' => $e->getMessage(),
+            ]);
+            $this->auditSafe(function () use ($doc, $e): void {
+                if ($this->audit === null) {
+                    return;
+                }
+                $this->audit->fromDocument($doc, 'fiscal_pdf_pending', FiscalAuditLog::STATUS_PROCESSING, [
+                    'error_message' => 'PDF pendiente: ' . $e->getMessage(),
+                ]);
+            });
+        }
     }
 
     private function enqueueGreStatusPoll(FiscalDocument $doc): void
