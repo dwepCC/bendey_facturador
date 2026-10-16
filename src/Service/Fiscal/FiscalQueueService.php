@@ -15,6 +15,12 @@ class FiscalQueueService
     public const QUEUE_RETRY = 'fiscal:retry';
     public const QUEUE_EMAIL = 'fiscal:email';
     public const QUEUE_WEBHOOK_SYNC = 'fiscal:webhook_sync';
+    /**
+     * Reintentos diferidos del webhook (ZSET). Antes se programaban en `fiscal:webhook_sync`, que es
+     * la LISTA de la cola: un ZADD sobre ella la convertía en ZSET y el siguiente RPUSH/BLPOP fallaba
+     * con WRONGTYPE, tumbando el worker (incidente 2026-10-15: 51 comprobantes sin emitir 5 h).
+     */
+    public const QUEUE_WEBHOOK_SYNC_RETRY = 'fiscal:webhook_sync:retry';
     public const QUEUE_PSE_RETRY = 'fiscal:pse_retry';
     public const QUEUE_STATUS_POLL = 'fiscal:status_poll';
     /** ZSET de reintentos programados (no mezclar con QUEUE_STATUS_POLL que es LIST). */
@@ -165,6 +171,51 @@ class FiscalQueueService
             $this->client->zrem($queue, [$uuid]);
         }
         return array_map('strval', $items);
+    }
+
+    /** Miembro del ZSET de reintentos del webhook: «uuid#intento». */
+    public static function webhookRetryMember(string $documentUuid, int $attempt): string
+    {
+        return $documentUuid . '#' . max(1, $attempt);
+    }
+
+    /**
+     * Inverso de webhookRetryMember. Un miembro sin «#» (formato anterior) es el intento 1.
+     *
+     * @return array{0: string, 1: int}
+     */
+    public static function parseWebhookRetryMember(string $member): array
+    {
+        $pos = strrpos($member, '#');
+        if ($pos === false) {
+            return [$member, 1];
+        }
+        $attempt = (int) substr($member, $pos + 1);
+        return [substr($member, 0, $pos), max(1, $attempt)];
+    }
+
+    /**
+     * Deja la LISTA `fiscal:webhook_sync` utilizable si un despliegue anterior la convirtió en ZSET:
+     * mueve sus miembros (reintentos pendientes) al ZSET de reintentos y borra la clave. Se llama al
+     * arrancar el worker; sin esto, el primer BLPOP del worker nuevo volvería a fallar con WRONGTYPE.
+     */
+    public function repairWebhookSyncKey(): int
+    {
+        if ($this->client === null) {
+            return 0;
+        }
+        $type = (string) $this->client->type(self::QUEUE_WEBHOOK_SYNC);
+        if ($type !== 'zset') {
+            return 0;
+        }
+        $items = $this->client->zrange(self::QUEUE_WEBHOOK_SYNC, 0, -1, ['WITHSCORES' => true]);
+        $moved = 0;
+        if (is_array($items) && $items !== []) {
+            $this->client->zadd(self::QUEUE_WEBHOOK_SYNC_RETRY, $items);
+            $moved = count($items);
+        }
+        $this->client->del([self::QUEUE_WEBHOOK_SYNC]);
+        return $moved;
     }
 
     public function queueLength(string $queue): int

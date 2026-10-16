@@ -54,12 +54,15 @@ class FiscalWebhookSyncProcessor
                 'error' => $e->getMessage(),
             ]);
             if ($attempt < 8) {
+                // Reintento DIFERIDO en su propio ZSET (ver QUEUE_WEBHOOK_SYNC_RETRY); el worker lo
+                // pasa a la cola cuando vence, con el intento siguiente. Antes además se encolaba de
+                // inmediato, lo que anulaba la espera y reintentaba en bucle.
                 $delay = min(3600, 15 * (2 ** ($attempt - 1)));
-                $this->queue->scheduleRetry($uuid, $delay, FiscalQueueService::QUEUE_WEBHOOK_SYNC);
-                $this->queue->push(FiscalQueueService::QUEUE_WEBHOOK_SYNC, [
-                    'document_uuid' => $uuid,
-                    'attempt' => $attempt + 1,
-                ]);
+                $this->queue->scheduleRetry(
+                    FiscalQueueService::webhookRetryMember($uuid, $attempt + 1),
+                    $delay,
+                    FiscalQueueService::QUEUE_WEBHOOK_SYNC_RETRY,
+                );
             }
         }
     }

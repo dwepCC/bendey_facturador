@@ -81,6 +81,17 @@ class FiscalWorkerCommand extends Command
         $once = (bool) $input->getOption('once');
         $onlyQueue = $input->getOption('queue');
 
+        // Un despliegue anterior pudo dejar la cola del webhook convertida en ZSET (WRONGTYPE en cada
+        // BLPOP). Se repara antes de consumir; los reintentos que tenía no se pierden.
+        try {
+            $movidos = $this->queue->repairWebhookSyncKey();
+            if ($movidos > 0) {
+                $output->writeln('<comment>Cola webhook reparada: ' . $movidos . ' reintentos movidos</comment>');
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('fiscal_webhook_queue_repair_failed', ['error' => $e->getMessage()]);
+        }
+
         do {
             // El worker vive indefinidamente y Doctrine mantiene en memoria (identity
             // map) toda entidad que haya cargado. Sin este clear, la Empresa leída en
@@ -228,11 +239,12 @@ class FiscalWorkerCommand extends Command
             $output->writeln('<comment>Retry PSE: ' . $uuid . '</comment>');
             $this->queue->push(FiscalQueueService::QUEUE_EMIT, ['document_uuid' => $uuid]);
         }
-        foreach ($this->queue->dueRetries(FiscalQueueService::QUEUE_WEBHOOK_SYNC) as $uuid) {
-            $output->writeln('<comment>Retry webhook: ' . $uuid . '</comment>');
+        foreach ($this->queue->dueRetries(FiscalQueueService::QUEUE_WEBHOOK_SYNC_RETRY) as $member) {
+            [$uuid, $attempt] = FiscalQueueService::parseWebhookRetryMember($member);
+            $output->writeln('<comment>Retry webhook: ' . $uuid . ' (intento ' . $attempt . ')</comment>');
             $this->queue->push(FiscalQueueService::QUEUE_WEBHOOK_SYNC, [
                 'document_uuid' => $uuid,
-                'attempt' => 1,
+                'attempt' => $attempt,
             ]);
         }
         foreach ($this->queue->dueRetries(FiscalQueueService::QUEUE_STATUS_POLL_RETRY) as $uuid) {

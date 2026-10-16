@@ -19,6 +19,7 @@ class EmpresaDestroyRedisPurgeService
         FiscalQueueService::QUEUE_EMIT,
         FiscalQueueService::QUEUE_EMAIL,
         FiscalQueueService::QUEUE_WEBHOOK_SYNC,
+        FiscalQueueService::QUEUE_WEBHOOK_SYNC_RETRY,
         FiscalQueueService::QUEUE_STATUS_POLL,
         FiscalQueueService::QUEUE_STATUS_POLL_RETRY,
         FiscalQueueService::QUEUE_AUDIT,
@@ -365,6 +366,11 @@ class EmpresaDestroyRedisPurgeService
     private function memberMatches(string $member, EmpresaDestroyPurgeContext $ctx, array $uuidSet): bool
     {
         if ($member !== '' && isset($uuidSet[$member])) {
+            return true;
+        }
+        // Reintentos del webhook: «uuid#intento» (FiscalQueueService::webhookRetryMember).
+        [$uuidDelReintento] = FiscalQueueService::parseWebhookRetryMember($member);
+        if ($uuidDelReintento !== $member && isset($uuidSet[$uuidDelReintento])) {
             return true;
         }
 
