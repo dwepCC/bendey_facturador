@@ -136,6 +136,20 @@ class FiscalDocument
     #[ORM\Column(type: 'string', length: 500, nullable: true)]
     private ?string $unsignedXmlUrl = null;
 
+    /** Evidencia de la última verificación manual en SUNAT aplicada por un operador del panel. */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $verificationJson = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeInterface $verifiedAt = null;
+
+    #[ORM\Column(type: 'string', length: 180, nullable: true)]
+    private ?string $verifiedBy = null;
+
+    /** sunat_cdr | sunat_status | validapse_consultar */
+    #[ORM\Column(type: 'string', length: 40, nullable: true)]
+    private ?string $verificationSource = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeInterface $createdAt;
 
@@ -232,6 +246,14 @@ class FiscalDocument
     public function setPseResponseJson(?string $v): self { $this->pseResponseJson = $v; return $this; }
     public function getUnsignedXmlUrl(): ?string { return $this->unsignedXmlUrl; }
     public function setUnsignedXmlUrl(?string $v): self { $this->unsignedXmlUrl = $v; return $this; }
+    public function getVerificationJson(): ?string { return $this->verificationJson; }
+    public function setVerificationJson(?string $v): self { $this->verificationJson = $v; return $this; }
+    public function getVerifiedAt(): ?\DateTimeInterface { return $this->verifiedAt; }
+    public function setVerifiedAt(?\DateTimeInterface $v): self { $this->verifiedAt = $v; return $this; }
+    public function getVerifiedBy(): ?string { return $this->verifiedBy; }
+    public function setVerifiedBy(?string $v): self { $this->verifiedBy = $v; return $this; }
+    public function getVerificationSource(): ?string { return $this->verificationSource; }
+    public function setVerificationSource(?string $v): self { $this->verificationSource = $v; return $this; }
     public function getCreatedAt(): \DateTimeInterface { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeInterface { return $this->updatedAt; }
 }

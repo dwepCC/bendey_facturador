@@ -23,9 +23,10 @@ class FiscalDashboardController
         $username = $user !== null ? $user->getUserIdentifier() : '';
         $content = file_get_contents(__DIR__ . '/../../views/fiscal_dashboard.html');
         $content = str_replace(
-            ['__API_BASE__', '__USERNAME__', '__FISCAL_CSS__', '__DASH_NAV__'],
+            ['__API_BASE__', '__PANEL_API__', '__USERNAME__', '__FISCAL_CSS__', '__DASH_NAV__'],
             [
                 htmlspecialchars($apiBase, ENT_QUOTES),
+                htmlspecialchars($request->getSchemeAndHttpHost() . $request->getBasePath() . '/dashboard/api', ENT_QUOTES),
                 htmlspecialchars($username, ENT_QUOTES),
                 htmlspecialchars(FiscalUiAssets::stylesheetHref(), ENT_QUOTES),
                 FiscalUiAssets::dashNavHtml('dashboard'),

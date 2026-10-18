@@ -22,4 +22,10 @@ interface StorageDriverInterface
         ?string $cdrZip,
         ?string $pdf
     ): array;
+
+    /**
+     * Guarda SOLO el CDR (zip) de un comprobante y devuelve su URL. Para la verificación manual
+     * en SUNAT: el XML firmado ya está (o no existe) y storeFiscalFiles lo sobrescribiría.
+     */
+    public function storeCdr(string $tenantSlug, string $documentType, string $series, string $number, string $cdrZip): string;
 }

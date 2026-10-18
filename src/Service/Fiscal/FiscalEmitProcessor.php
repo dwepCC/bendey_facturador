@@ -78,8 +78,11 @@ class FiscalEmitProcessor
 
     public function process(FiscalDocument $doc): void
     {
+        // Observado = aceptado con observaciones: reenviarlo provoca el 1033 de duplicado. Puede
+        // quedar un reintento programado cuando el operador lo verificó en SUNAT (FiscalSunatVerifier).
         if (in_array($doc->getStatus(), [
             FiscalDocument::STATUS_ACCEPTED,
+            FiscalDocument::STATUS_OBSERVED,
             FiscalDocument::STATUS_SENDING,
             FiscalDocument::STATUS_SENT,
         ], true)) {

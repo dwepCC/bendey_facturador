@@ -123,8 +123,19 @@
           <button class="btn btn-violet act-btn" id="btnForce" data-act="/force" title="Forzar el reenvío ignorando el estado actual">Forzar</button>
           <button class="btn btn-teal act-btn" id="btnEmail" data-act="/email" title="Reenviar al cliente el correo con el comprobante">Reenviar correo</button>
           <button class="btn btn-sky act-btn" id="btnPoll" data-act="/poll" title="Consultar el estado / ticket del comprobante en SUNAT">Consultar estado</button>
+          <button class="btn btn-emerald" id="btnVerify" type="button" title="Preguntar a SUNAT si tiene este comprobante. No cambia nada hasta que usted aplique el resultado.">Verificar en SUNAT</button>
           <a href="#" id="btnMoreActions" class="hint-muted" style="align-self:center">Mostrar todas las acciones</a>
           <span id="actBusy" class="hint-muted" style="display:none">⏳ Procesando…</span>
+        </div>
+
+        <div id="verifyBox" class="resp-card" style="display:none">
+          <div class="resp-head"><span class="badge" id="verifyBadge">SUNAT</span><strong id="verifyLabel"></strong></div>
+          <div class="resp-detail" id="verifyDetail"></div>
+          <p class="hint-muted" id="verifyHint"></p>
+          <div class="actions">
+            <button class="btn btn-indigo" id="btnVerifyApply" type="button" style="display:none">Aplicar al comprobante</button>
+            <button class="btn btn-slate" id="btnVerifyClose" type="button">Cerrar</button>
+          </div>
         </div>
 
         <div class="actions">
@@ -267,7 +278,7 @@
       document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openDetail(b.getAttribute('data-open')));
     }
 
-    async function openDetail(uuid){ showAllActions=false; qs('detailModal').style.display='flex'; await detail(uuid); }
+    async function openDetail(uuid){ showAllActions=false; qs('verifyBox').style.display='none'; lastVerification=null; qs('detailModal').style.display='flex'; await detail(uuid); }
     function closeDetail(){ qs('detailModal').style.display='none'; qs('pdfPreviewWrap').style.display='none'; qs('pdfPreview').src='about:blank'; }
 
     // ── Acciones contextuales según el estado ──
@@ -281,10 +292,10 @@
         return {visible:['btnEmail','btnPoll'], primary:'btnPoll', hint:'⚠️ Aceptado con observaciones. Revisa el motivo abajo.'};
       }
       if(s.includes('reject')){
-        return {visible:['btnForce','btnPoll'], primary:'btnForce', hint:'❌ Rechazado por SUNAT. Corrige el comprobante y usa «Forzar» para reemitir. El motivo está abajo.'};
+        return {visible:['btnPoll'], primary:'btnVerify', hint:'❌ Rechazado. Antes de nada, «Verificar en SUNAT»: muchos «rechazos» (p. ej. 1033 «ya registrado») son comprobantes que SUNAT tiene aceptados. No reenvíe con «Forzar»: si SUNAT ya lo tiene, el reenvío lo rechaza por duplicado. Anular o re-emitir la venta se hace desde el ERP/Resto.'};
       }
       if(s.includes('error')||s.includes('fail')){
-        return {visible:['btnRetry','btnForce'], primary:'btnRetry', hint:'⚠️ Error técnico (no un rechazo). Usa «Reintentar»; si sigue, «Forzar».'};
+        return {visible:['btnRetry'], primary:'btnRetry', hint:'⚠️ Error técnico (no un rechazo). Si el envío pudo llegar a SUNAT, use primero «Verificar en SUNAT»; si SUNAT no lo tiene, «Reintentar».'};
       }
       if(s.includes('pend')||s.includes('queue')||s.includes('send')||s.includes('retry')){
         return {visible:['btnPoll','btnForce'], primary:'btnPoll', hint:'⏳ En proceso. Usa «Consultar estado» para refrescar desde SUNAT.'};
@@ -299,6 +310,75 @@
         b.classList.toggle('act-primary', b.id===ctx.primary);
       });
       qs('btnMoreActions').textContent=showAllActions?'Ver solo las recomendadas':'Mostrar todas las acciones';
+      // Verificar en SUNAT: rechazados, con error o reintentando (desde donde se puede aplicar).
+      const canVerify=s=>['rejected','error','retrying'].includes(String(s||'').toLowerCase());
+      qs('btnVerify').style.display=(showAllActions||canVerify(status))?'inline-flex':'none';
+      qs('btnVerify').classList.toggle('act-primary', ctx.primary==='btnVerify');
+    }
+
+    // ── Verificar en SUNAT (solo panel del facturador) ──
+    // Consultar no cambia nada. «Aplicar» vuelve a consultar en el servidor y escribe solo si SUNAT
+    // responde lo mismo que vio el operador; el tenant se entera por el webhook.
+    const PANEL_API='__PANEL_API__';
+    let lastVerification=null;
+    async function panelPost(path, body){
+      const r=await fetch(PANEL_API+path,{method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json','X-Fiscal-Panel':'1'},body:JSON.stringify(body||{})});
+      if(r.status===401){location.href='/login'; throw new Error('Sesión expirada');}
+      const data=await r.json().catch(()=>({}));
+      return {ok:r.ok,status:r.status,data};
+    }
+    function renderVerification(v, currentStatus){
+      lastVerification=v;
+      qs('verifyBox').style.display='block';
+      const ok=v.outcome==='accepted'||v.outcome==='observed';
+      const bad=v.outcome==='rejected'||v.outcome==='voided';
+      qs('verifyBadge').className='badge '+(ok?'badge-ok':bad?'badge-err':'badge-warn');
+      qs('verifyBadge').textContent=v.has_cdr?'SUNAT · CDR recuperado':'SUNAT';
+      qs('verifyLabel').textContent=v.label||'';
+      const lines=[];
+      if(v.status_code||v.status_message) lines.push('Consulta: '+[v.status_code,v.status_message].filter(Boolean).join(' · '));
+      if(v.cdr_code!=null||v.cdr_message) lines.push('CDR: '+[v.cdr_code,v.cdr_message].filter(x=>x!=null&&x!=='').join(' · '));
+      if(v.cdr_notes&&v.cdr_notes.length) lines.push('Observaciones: '+v.cdr_notes.join(' | '));
+      if(v.reason) lines.push(v.reason);
+      lines.push('Fuente: '+(v.source||'—')+' · '+formatDate(v.consulted_at));
+      qs('verifyDetail').innerHTML=lines.map(escapeHtml).join('<br>');
+      const applicable=v.can_apply && v.applicable_from_current;
+      qs('btnVerifyApply').style.display=applicable?'inline-flex':'none';
+      qs('btnVerifyApply').textContent=applicable?('Aplicar: marcar como «'+statusText(v.proposed_status)+'»'):'Aplicar';
+      let hint='';
+      if(applicable) hint='Al aplicar, el comprobante pasa a «'+statusText(v.proposed_status)+'», se guarda la evidencia de esta consulta'+(v.has_cdr?' y el CDR':'')+', y el ERP/Resto del tenant se actualiza por el webhook.';
+      else if(v.outcome==='not_found') hint='SUNAT no lo tiene: no hay nada que aplicar. Puede reenviarse con el mismo número (dentro del plazo de SUNAT).';
+      else if(v.can_apply && !v.applicable_from_current) hint='El comprobante está «'+statusText(currentStatus)+'»: no hace falta aplicar.';
+      else hint='No hay un resultado para aplicar.';
+      qs('verifyHint').textContent=hint;
+    }
+    async function verifySunat(){
+      if(!selectedUuid||actionRunning)return;
+      actionRunning=true; qs('btnVerify').disabled=true; qs('actBusy').style.display='inline';
+      try{
+        const r=await panelPost('/documents/'+selectedUuid+'/verify');
+        if(!r.ok) throw new Error(r.data.error||('Error '+r.status));
+        renderVerification(r.data, currentStatus);
+      }catch(e){ alert(e.message||'No se pudo consultar a SUNAT'); }
+      finally{ actionRunning=false; qs('btnVerify').disabled=false; qs('actBusy').style.display='none'; }
+    }
+    async function applyVerification(){
+      if(!selectedUuid||!lastVerification||actionRunning)return;
+      const target=statusText(lastVerification.proposed_status);
+      if(!confirm('¿Marcar este comprobante como «'+target+'» según la respuesta de SUNAT?\n\nSe volverá a consultar a SUNAT antes de guardar, y el ERP/Resto del tenant recibirá el nuevo estado.'))return;
+      actionRunning=true; qs('btnVerifyApply').disabled=true; qs('actBusy').style.display='inline';
+      try{
+        const r=await panelPost('/documents/'+selectedUuid+'/verify/apply',{expected_outcome:lastVerification.outcome});
+        if(!r.ok){
+          if(r.data.verification) renderVerification(Object.assign({applicable_from_current:false},r.data.verification), currentStatus);
+          throw new Error(r.data.error||('Error '+r.status));
+        }
+        qs('verifyBox').style.display='none'; lastVerification=null;
+        await detail(selectedUuid); await loadStats(); await loadList();
+        alert('Aplicado: el comprobante quedó «'+statusText(r.data.status)+'».');
+      }catch(e){ alert(e.message||'No se pudo aplicar'); }
+      finally{ actionRunning=false; qs('btnVerifyApply').disabled=false; qs('actBusy').style.display='none'; }
     }
 
     function renderResponse(doc, pseResponse, attempts){
@@ -425,6 +505,9 @@
     qs('btnViewPdf').onclick=showPdfInline;
     qs('btnGenPdf').onclick=generatePdf;
     document.querySelectorAll('.act-btn').forEach(b=>b.onclick=()=>action(b.dataset.act));
+    qs('btnVerify').onclick=verifySunat;
+    qs('btnVerifyApply').onclick=applyVerification;
+    qs('btnVerifyClose').onclick=()=>{qs('verifyBox').style.display='none'; lastVerification=null;};
 
     setDefaultDateRange();
     renderChips();

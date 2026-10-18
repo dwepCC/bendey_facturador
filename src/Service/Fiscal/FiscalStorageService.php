@@ -42,4 +42,9 @@ class FiscalStorageService
             $pdf
         );
     }
+
+    public function storeCdr(string $tenantSlug, string $documentType, string $series, string $number, string $cdrZip): string
+    {
+        return $this->driver->storeCdr($tenantSlug, $documentType, $series, $number, $cdrZip);
+    }
 }

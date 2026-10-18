@@ -85,6 +85,14 @@ class S3CompatibleStorageDriver implements StorageDriverInterface
         ];
     }
 
+    public function storeCdr(string $tenantSlug, string $documentType, string $series, string $number, string $cdrZip): string
+    {
+        $now = new \DateTimeImmutable();
+        $relDir = sprintf('%s/sunat/%s/%s', $this->sanitize($tenantSlug), $now->format('Y'), $now->format('m'));
+
+        return $this->put(sprintf('%s/%s-%s-%s-cdr.zip', $relDir, $documentType, $series, $number), $cdrZip, 'application/zip');
+    }
+
     private function put(string $relativePath, string $body, string $contentType): string
     {
         $key = $this->keyPrefix !== '' ? $this->keyPrefix . '/' . $relativePath : $relativePath;

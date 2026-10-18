@@ -258,3 +258,7 @@ services:
 
     # add more service definitions here when explicit configuration is needed
     # please note that last definitions always *replace* previous definitions
+
+    # Verificación manual en SUNAT (panel del facturador). Clientes intercambiables para pruebas.
+    App\Service\Fiscal\Verification\SunatConsultClientInterface: '@App\Service\Fiscal\Verification\GreenterSunatConsultClient'
+    App\Service\Fiscal\Verification\ValidaPseConsultClientInterface: '@App\Service\Fiscal\Verification\CurlValidaPseConsultClient'

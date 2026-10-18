@@ -76,6 +76,20 @@ class LocalStorageDriver implements StorageDriverInterface
         ];
     }
 
+    public function storeCdr(string $tenantSlug, string $documentType, string $series, string $number, string $cdrZip): string
+    {
+        $now = new \DateTimeImmutable();
+        $relDir = sprintf('%s/sunat/%s/%s', $this->sanitize($tenantSlug), $now->format('Y'), $now->format('m'));
+        $absDir = $this->basePath . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relDir);
+        if (!is_dir($absDir) && !mkdir($absDir, 0755, true) && !is_dir($absDir)) {
+            throw new \RuntimeException('No se pudo crear directorio: ' . $absDir);
+        }
+        $cdrFile = sprintf('%s-%s-%s-cdr.zip', $documentType, $series, $number);
+        file_put_contents($absDir . DIRECTORY_SEPARATOR . $cdrFile, $cdrZip);
+
+        return $this->publicBaseUrl . '/' . $relDir . '/' . $cdrFile;
+    }
+
     private function sanitize(string $slug): string
     {
         return preg_replace('/[^a-zA-Z0-9_-]/', '-', $slug) ?: 'unknown';
