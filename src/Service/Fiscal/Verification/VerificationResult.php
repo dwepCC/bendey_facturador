@@ -79,7 +79,9 @@ final class VerificationResult
     public function label(): string
     {
         return match ($this->outcome) {
-            self::ACCEPTED => 'SUNAT lo tiene ACEPTADO',
+            self::ACCEPTED => $this->cdrZip !== null && $this->cdrZip !== ''
+                ? 'SUNAT lo tiene ACEPTADO'
+                : 'SUNAT lo tiene ACEPTADO (validado por consulta, sin CDR)',
             self::OBSERVED => 'SUNAT lo tiene ACEPTADO con observaciones',
             self::REJECTED => 'SUNAT lo tiene RECHAZADO',
             self::VOIDED => 'SUNAT lo tiene DADO DE BAJA',

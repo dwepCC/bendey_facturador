@@ -308,6 +308,63 @@ class FiscalSunatVerifierTest extends TestCase
         $this->assertStringContainsString('verificado en SUNAT', (string) $doc->getSunatMessage());
     }
 
+    /**
+     * Prueba real del 2026-10-18 con B003-895/905 de comercializadoradecalzadosadri: getStatusCdr
+     * → 0125 «No se pudo obtener la constancia»; getStatus → 0001 «existe y está aceptado».
+     */
+    public function testSinConstanciaPeroExisteSeAplicaComoAceptadoSinCdr(): void
+    {
+        $doc = $this->doc(FiscalDocument::STATUS_REJECTED);
+        $doc->setSunatCode('501');
+        $sunat = $this->createMock(SunatConsultClientInterface::class);
+        $sunat->method('getStatusCdr')->willReturn($this->errorResult('0125', 'No se pudo obtener la constancia'));
+        $sunat->method('getStatus')->willReturn((new StatusCdrResult())->setSuccess(true)->setCode('0001')->setMessage('El comprobante existe y está aceptado.'));
+        $storage = $this->createMock(FiscalStorageService::class);
+        $storage->expects($this->never())->method('storeCdr');
+        $webhook = $this->createMock(FiscalWebhookService::class);
+        $webhook->expects($this->once())->method('notifyStatus');
+
+        $verifier = $this->verifier($this->empresa('BND52148', 'clave'), $sunat, null, $storage, $webhook);
+        $preview = $verifier->verify($doc);
+        $this->assertSame(VerificationResult::ACCEPTED, $preview->outcome);
+        $this->assertTrue($preview->isApplicable());
+        $this->assertStringContainsString('sin CDR', $preview->label());
+
+        $verifier->apply($doc, VerificationResult::ACCEPTED, 'op');
+        $this->assertSame(FiscalDocument::STATUS_ACCEPTED, $doc->getStatus());
+        $this->assertSame('0', $doc->getSunatCode());
+        $this->assertNull($doc->getCdrUrl());
+        $this->assertSame(VerificationResult::SOURCE_SUNAT_STATUS, $doc->getVerificationSource());
+        $this->assertStringContainsString('sin CDR', (string) $doc->getSunatMessage());
+    }
+
+    public function testUsuarioSecundarioSinRucSeUsaConElRucDelante(): void
+    {
+        $sunat = $this->createMock(SunatConsultClientInterface::class);
+        $sunat->expects($this->once())->method('getStatusCdr')
+            ->with(self::RUC . 'BND52148', 'clave')
+            ->willReturn($this->cdrResult('0', 'aceptada'));
+
+        $empresa = $this->empresa('BND52148', 'clave', 'pse');
+        $this->assertTrue(FiscalSunatVerifier::hasUsableSolCredentials($empresa));
+        $pse = $this->createMock(ValidaPseConsultClientInterface::class);
+        $pse->method('consultar')->willReturn(['http' => 202, 'body' => '{"isSuccess":false,"code":"HTTP","errores":"Internal Server Error"}']);
+
+        $v = $this->verifier($empresa, $sunat, $pse)->verify($this->doc(FiscalDocument::STATUS_REJECTED));
+        $this->assertSame(VerificationResult::ACCEPTED, $v->outcome);
+    }
+
+    public function testNormalizacionDelUsuarioSol(): void
+    {
+        $this->assertSame(self::RUC . 'BND52148', Empresa::normalizeSolUser('BND52148', self::RUC));
+        $this->assertSame(self::RUC . 'BND52148', Empresa::normalizeSolUser(' ' . self::RUC . 'BND52148 ', self::RUC));
+        $this->assertSame(self::RUC . 'MODDATOS', Empresa::normalizeSolUser(self::RUC . 'MODDATOS', self::RUC));
+        $this->assertSame('PSE', Empresa::normalizeSolUser('PSE', self::RUC));
+        $this->assertSame('', Empresa::normalizeSolUser('', self::RUC));
+        $this->assertSame('BND52148', Empresa::normalizeSolUser('BND52148', ''));
+        $this->assertFalse(FiscalSunatVerifier::hasUsableSolCredentials($this->empresa('PSE', 'PSE')));
+    }
+
     public function testNoSeAplicaSiSunatRespondeDistinto(): void
     {
         $doc = $this->doc(FiscalDocument::STATUS_REJECTED);

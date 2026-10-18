@@ -127,9 +127,29 @@ class Empresa
         return $this;
     }
 
+    /**
+     * Usuario SOL tal como lo espera SUNAT: RUC (11 dígitos) + usuario. SUNAT entrega el usuario
+     * secundario solo («BND52148»); si se guardó así, se le antepone el RUC al usarlo (envío
+     * directo, consulta de CDR/estado, GRE). Lo guardado no se reescribe aquí. El relleno «PSE» de
+     * las empresas PSE se devuelve tal cual: no es un usuario SOL.
+     */
     public function getSolUser(): string
     {
-        return $this->solUser;
+        return self::normalizeSolUser($this->solUser, isset($this->ruc) ? $this->ruc : '');
+    }
+
+    public static function normalizeSolUser(string $user, string $ruc): string
+    {
+        $user = trim($user);
+        $ruc = trim($ruc);
+        if ($user === '' || strtoupper($user) === 'PSE' || preg_match('/^\d{11}$/', $ruc) !== 1) {
+            return $user;
+        }
+        if (preg_match('/^\d{11}/', $user) === 1) {
+            return $user;
+        }
+
+        return $ruc . $user;
     }
 
     public function setSolUser(string $solUser): self
