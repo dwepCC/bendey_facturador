@@ -262,3 +262,4 @@ services:
     # Verificación manual en SUNAT (panel del facturador). Clientes intercambiables para pruebas.
     App\Service\Fiscal\Verification\SunatConsultClientInterface: '@App\Service\Fiscal\Verification\GreenterSunatConsultClient'
     App\Service\Fiscal\Verification\ValidaPseConsultClientInterface: '@App\Service\Fiscal\Verification\CurlValidaPseConsultClient'
+    App\Service\Fiscal\Verification\SunatValidezApiClientInterface: '@App\Service\Fiscal\Verification\CurlSunatValidezApiClient'

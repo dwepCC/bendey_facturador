@@ -51,6 +51,7 @@ class FiscalSunatVerifier
         private readonly FiscalQueueService $queue,
         private readonly LoggerInterface $logger,
         private readonly ?FiscalAuditService $audit = null,
+        private readonly ?SunatValidezApiClientInterface $validez = null,
     ) {
     }
 
@@ -65,20 +66,130 @@ class FiscalSunatVerifier
             return VerificationResult::unavailable('SUNAT solo permite consultar comprobantes de producción; esta empresa está en pruebas.');
         }
 
-        try {
-            if (self::hasUsableSolCredentials($empresa)) {
-                return $this->verifyWithSunat($doc, $empresa, $ruc);
-            }
-            if (strtolower(trim($empresa->getSendMode())) === 'pse') {
-                return $this->verifyWithValidaPse($doc, $empresa, $ruc);
-            }
-        } catch (\Throwable $e) {
-            $this->logger->warning('fiscal_verify_failed', ['uuid' => $doc->getDocumentUuid(), 'error' => $e->getMessage()]);
-
-            return VerificationResult::unavailable('La consulta falló: ' . $e->getMessage());
+        // Orden, para CUALQUIER modo de emisión (también PSE):
+        //  1. Usuario SOL secundario → billConsultService (estado + CDR). La vía buena.
+        //  2. API de validez de SUNAT, si está configurada → existe/válido, sin CDR (respaldo).
+        //  3. Solo PSE: ValidaPSE /api/cpe/consultar (hoy falla siempre, 2026-10-18; queda por si lo arreglan).
+        $tried = [];
+        $steps = [];
+        if (self::hasUsableSolCredentials($empresa)) {
+            $steps[] = fn (): VerificationResult => $this->verifyWithSunat($doc, $empresa, $ruc);
+        } else {
+            $tried[] = 'sin usuario SOL secundario';
+        }
+        if ($this->validez !== null && $empresa->isCpeApiConfigured()) {
+            $steps[] = fn (): VerificationResult => $this->verifyWithValidezApi($doc, $empresa, $ruc);
+        }
+        if (strtolower(trim($empresa->getSendMode())) === 'pse') {
+            $steps[] = fn (): VerificationResult => $this->verifyWithValidaPse($doc, $empresa, $ruc);
         }
 
-        return VerificationResult::unavailable('La empresa no tiene usuario SOL para consultar a SUNAT.');
+        $last = null;
+        foreach ($steps as $step) {
+            try {
+                $result = $step();
+            } catch (\Throwable $e) {
+                $this->logger->warning('fiscal_verify_failed', ['uuid' => $doc->getDocumentUuid(), 'error' => $e->getMessage()]);
+                $result = VerificationResult::unavailable('La consulta falló: ' . $e->getMessage());
+            }
+            if ($result->outcome !== VerificationResult::UNAVAILABLE) {
+                return $result;
+            }
+            $tried[] = ($result->source ?? 'consulta') . ': ' . ($result->reason ?? 'sin respuesta');
+            $last = $result;
+        }
+
+        if ($last === null) {
+            return VerificationResult::unavailable(
+                'La empresa no tiene usuario SOL secundario ni credenciales de la API de validez de SUNAT. Regístrelos en el Panel Central (Configuración fiscal).'
+            );
+        }
+        if (count($tried) > 1) {
+            $last->reason = implode(' · ', $tried);
+        }
+
+        return $last;
+    }
+
+    private function verifyWithValidezApi(FiscalDocument $doc, Empresa $empresa, string $ruc): VerificationResult
+    {
+        $snapshot = json_decode($doc->getSnapshotJson(), true);
+        $data = is_array($snapshot) ? ($snapshot['document'] ?? $snapshot) : [];
+        $fecha = self::fechaDdMmAaaa((string) ($data['fechaEmision'] ?? ''));
+        if ($fecha === null) {
+            return VerificationResult::unavailable('El comprobante no tiene fecha de emisión para la API de validez.', VerificationResult::SOURCE_SUNAT_VALIDEZ);
+        }
+        $consulta = [
+            'numRuc' => $ruc,
+            'codComp' => $doc->getDocumentType(),
+            'numeroSerie' => $doc->getSeries(),
+            'numero' => (int) $doc->getNumber(),
+            'fechaEmision' => $fecha,
+        ];
+        if (isset($data['mtoImpVenta']) && is_numeric($data['mtoImpVenta'])) {
+            $consulta['monto'] = round((float) $data['mtoImpVenta'], 2);
+        }
+        $resp = $this->validez->validar((string) $empresa->getCpeApiClientId(), (string) $empresa->getCpeApiClientSecret(), $ruc, $consulta);
+
+        return self::fromValidezApiResponse($resp['http'], $resp['body']);
+    }
+
+    /**
+     * estadoCp (manual SUNAT): 0 NO EXISTE · 1 ACEPTADO · 2 ANULADO · 4 NO AUTORIZADO. La API
+     * compara fecha y monto: si no coinciden, el comprobante de SUNAT no es el nuestro.
+     */
+    public static function fromValidezApiResponse(int $http, string $body): VerificationResult
+    {
+        $json = json_decode($body, true);
+        if (!is_array($json)) {
+            return VerificationResult::unavailable('La API de validez no respondió JSON (HTTP ' . $http . ').', VerificationResult::SOURCE_SUNAT_VALIDEZ);
+        }
+        $message = trim((string) ($json['message'] ?? ''));
+        if (($json['success'] ?? false) !== true || !is_array($json['data'] ?? null)) {
+            return VerificationResult::unavailable(
+                'La API de validez no pudo responder' . ($message !== '' ? ': ' . $message : '') . ' (HTTP ' . $http . ').',
+                VerificationResult::SOURCE_SUNAT_VALIDEZ,
+                isset($json['errorCode']) ? (string) $json['errorCode'] : null,
+                $message !== '' ? $message : null
+            );
+        }
+        $data = $json['data'];
+        $estado = isset($data['estadoCp']) ? (string) $data['estadoCp'] : '';
+        $obs = $data['observaciones'] ?? $data['Observaciones'] ?? [];
+        $obs = is_array($obs) ? array_values(array_filter(array_map('strval', $obs))) : [];
+
+        $out = new VerificationResult();
+        $out->source = VerificationResult::SOURCE_SUNAT_VALIDEZ;
+        $out->statusCode = 'estadoCp=' . $estado;
+        $out->statusMessage = $message !== '' ? $message : null;
+        $out->cdrNotes = $obs;
+        $out->outcome = match ($estado) {
+            '1' => VerificationResult::ACCEPTED,
+            '2' => VerificationResult::VOIDED,
+            '0' => VerificationResult::NOT_FOUND,
+            default => VerificationResult::UNAVAILABLE,
+        };
+        if ($out->outcome === VerificationResult::ACCEPTED) {
+            $out->reason = 'SUNAT confirma el comprobante como ACEPTADO (fecha y monto coinciden) pero esta API no entrega el CDR.';
+        } elseif ($estado === '4') {
+            $out->reason = 'SUNAT responde NO AUTORIZADO (estadoCp=4).';
+        } elseif ($out->outcome === VerificationResult::UNAVAILABLE) {
+            $out->reason = 'Respuesta de la API de validez sin conclusión (estadoCp=' . $estado . ').';
+        }
+        if ($obs !== []) {
+            $out->reason = trim(($out->reason ?? '') . ' Observaciones: ' . implode(' | ', $obs));
+        }
+
+        return $out;
+    }
+
+    private static function fechaDdMmAaaa(string $iso): ?string
+    {
+        if (preg_match('/^(\d{4})-(\d{2})-(\d{2})/', trim($iso), $m) !== 1) {
+            return null;
+        }
+
+        return $m[3] . '/' . $m[2] . '/' . $m[1];
     }
 
     /**

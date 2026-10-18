@@ -17,6 +17,7 @@ final class FiscalSecretRedactor
         '/Bearer\s+[A-Za-z0-9._\-]+/i',
         '/Authorization["\']?\s*[:=]\s*["\']?[^"\',\s}]+/i',
         '/certificate["\']?\s*[:=]\s*["\']?[A-Za-z0-9+\/=]{40,}/i',
+        '/client_secret["\']?\s*[:=]\s*["\']?[^"\',\s}]+/i',
     ];
 
     public function redact(?string $text): ?string
@@ -36,7 +37,8 @@ final class FiscalSecretRedactor
      */
     public function redactArray(array $data): array
     {
-        $secretKeys = ['sol_pass', 'sol_user', 'pse_token', 'pse_pass', 'pse_password', 'certificate', 'token', 'password', 'authorization'];
+        $secretKeys = ['sol_pass', 'sol_user', 'pse_token', 'pse_pass', 'pse_password', 'certificate', 'token', 'password', 'authorization',
+            'client_secret', 'gre_client_secret', 'cpe_api_client_secret'];
         foreach ($data as $k => $v) {
             $lk = strtolower((string) $k);
             if (in_array($lk, $secretKeys, true)) {

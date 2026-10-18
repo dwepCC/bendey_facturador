@@ -12,6 +12,7 @@ use App\Service\Fiscal\FiscalStorageService;
 use App\Service\Fiscal\FiscalWebhookService;
 use App\Service\Fiscal\Verification\FiscalSunatVerifier;
 use App\Service\Fiscal\Verification\SunatConsultClientInterface;
+use App\Service\Fiscal\Verification\SunatValidezApiClientInterface;
 use App\Service\Fiscal\Verification\ValidaPseConsultClientInterface;
 use App\Service\Fiscal\Verification\VerificationApplyException;
 use App\Service\Fiscal\Verification\VerificationResult;
@@ -160,6 +161,92 @@ class FiscalSunatVerifierTest extends TestCase
         $this->assertFalse($v->isApplicable());
     }
 
+    public function testEmpresaPseConUsuarioSolConsultaASunatNoAValidaPse(): void
+    {
+        $sunat = $this->createMock(SunatConsultClientInterface::class);
+        $sunat->expects($this->once())->method('getStatusCdr')
+            ->with(self::RUC . 'CONSULTA1', 'clave', self::RUC, '01', 'F001', 2)
+            ->willReturn($this->cdrResult('0', 'La Boleta numero B003-895, ha sido aceptada'));
+        $pse = $this->createMock(ValidaPseConsultClientInterface::class);
+        $pse->expects($this->never())->method('consultar');
+
+        $v = $this->verifier($this->empresa(self::RUC . 'CONSULTA1', 'clave', 'pse'), $sunat, $pse)->verify($this->doc(FiscalDocument::STATUS_REJECTED));
+
+        $this->assertSame(VerificationResult::ACCEPTED, $v->outcome);
+        $this->assertSame(VerificationResult::SOURCE_SUNAT_CDR, $v->source);
+    }
+
+    public function testSinSolUsaLaApiDeValidezComoRespaldo(): void
+    {
+        $empresa = $this->empresa('PSE', 'PSE', 'pse');
+        $empresa->setCpeApiClientId('cpe-id');
+        $empresa->setCpeApiClientSecret('cpe-secret');
+        $validez = $this->createMock(SunatValidezApiClientInterface::class);
+        $validez->expects($this->once())->method('validar')
+            ->with('cpe-id', 'cpe-secret', self::RUC, [
+                'numRuc' => self::RUC, 'codComp' => '01', 'numeroSerie' => 'F001', 'numero' => 2,
+                'fechaEmision' => '18/10/2026', 'monto' => 75.0,
+            ])
+            ->willReturn(['http' => 200, 'body' => '{"success":true,"message":"Operation Success! ","data":{"estadoCp":"1","estadoRuc":"00","condDomiRuc":"00"}}']);
+        $pse = $this->createMock(ValidaPseConsultClientInterface::class);
+        $pse->expects($this->never())->method('consultar');
+
+        $v = $this->verifier($empresa, $this->createMock(SunatConsultClientInterface::class), $pse, null, null, $validez)
+            ->verify($this->doc(FiscalDocument::STATUS_REJECTED, ['fechaEmision' => '2026-10-18T10:09:46-05:00', 'mtoImpVenta' => 75]));
+
+        $this->assertSame(VerificationResult::ACCEPTED, $v->outcome);
+        $this->assertSame(VerificationResult::SOURCE_SUNAT_VALIDEZ, $v->source);
+        $this->assertFalse($v->toArray()['has_cdr']);
+    }
+
+    public function testSolFallaYCaeALaApiDeValidez(): void
+    {
+        $empresa = $this->empresa(self::RUC . 'CONSULTA1', 'mala', 'pse');
+        $empresa->setCpeApiClientId('cpe-id');
+        $empresa->setCpeApiClientSecret('cpe-secret');
+        $sunat = $this->createMock(SunatConsultClientInterface::class);
+        $sunat->method('getStatusCdr')->willReturn($this->errorResult('HTTP', 'Unauthorized'));
+        $validez = $this->createMock(SunatValidezApiClientInterface::class);
+        $validez->method('validar')->willReturn(['http' => 200, 'body' => '{"success":true,"data":{"estadoCp":"0"}}']);
+
+        $v = $this->verifier($empresa, $sunat, null, null, null, $validez)
+            ->verify($this->doc(FiscalDocument::STATUS_REJECTED, ['fechaEmision' => '2026-10-18T10:09:46-05:00', 'mtoImpVenta' => 75]));
+
+        $this->assertSame(VerificationResult::NOT_FOUND, $v->outcome);
+    }
+
+    public function testSinNingunaCredencialLoDice(): void
+    {
+        $v = $this->verifier($this->empresa('PSE', 'PSE'), $this->createMock(SunatConsultClientInterface::class))
+            ->verify($this->doc(FiscalDocument::STATUS_REJECTED));
+
+        $this->assertSame(VerificationResult::UNAVAILABLE, $v->outcome);
+        $this->assertStringContainsString('Panel Central', (string) $v->reason);
+    }
+
+    /**
+     * @dataProvider estadosValidez
+     */
+    public function testRespuestasDeLaApiDeValidez(string $body, string $esperado): void
+    {
+        $this->assertSame($esperado, FiscalSunatVerifier::fromValidezApiResponse(200, $body)->outcome);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function estadosValidez(): array
+    {
+        return [
+            'aceptado' => ['{"success":true,"data":{"estadoCp":"1"}}', VerificationResult::ACCEPTED],
+            'anulado' => ['{"success":true,"data":{"estadoCp":"2"}}', VerificationResult::VOIDED],
+            'no existe' => ['{"success":true,"data":{"estadoCp":"0"}}', VerificationResult::NOT_FOUND],
+            'no autorizado' => ['{"success":true,"data":{"estadoCp":"4"}}', VerificationResult::UNAVAILABLE],
+            'error de la api' => ['{"success":false,"message":"El token no es valido","errorCode":"0103"}', VerificationResult::UNAVAILABLE],
+            'no json' => ['<html>', VerificationResult::UNAVAILABLE],
+        ];
+    }
+
     public function testEmpresaEnPruebasNoConsulta(): void
     {
         $empresa = $this->empresa(self::RUC . 'MODDATOS', 'x');
@@ -250,6 +337,7 @@ class FiscalSunatVerifierTest extends TestCase
         ?ValidaPseConsultClientInterface $pse = null,
         ?FiscalStorageService $storage = null,
         ?FiscalWebhookService $webhook = null,
+        ?SunatValidezApiClientInterface $validez = null,
     ): FiscalSunatVerifier {
         $repo = $this->createMock(EmpresaRepository::class);
         $repo->method('find')->willReturn($empresa);
@@ -262,7 +350,9 @@ class FiscalSunatVerifierTest extends TestCase
             $storage ?? $this->createMock(FiscalStorageService::class),
             $webhook ?? $this->createMock(FiscalWebhookService::class),
             $this->createMock(FiscalQueueService::class),
-            new NullLogger()
+            new NullLogger(),
+            null,
+            $validez
         );
     }
 
@@ -296,7 +386,10 @@ class FiscalSunatVerifierTest extends TestCase
         return $e;
     }
 
-    private function doc(string $status): FiscalDocument
+    /**
+     * @param array<string, mixed> $extra
+     */
+    private function doc(string $status, array $extra = []): FiscalDocument
     {
         $doc = new FiscalDocument();
         $doc->setDocumentUuid('0c6f66c6-a8fa-4bc0-8365-0d22ab8f557e');
@@ -306,7 +399,7 @@ class FiscalSunatVerifierTest extends TestCase
         $doc->setDocumentType('01');
         $doc->setSeries('F001');
         $doc->setNumber('2');
-        $doc->setSnapshotJson(json_encode(['company' => ['ruc' => self::RUC], 'serie' => 'F001', 'correlativo' => '2'], JSON_THROW_ON_ERROR));
+        $doc->setSnapshotJson(json_encode(['company' => ['ruc' => self::RUC], 'serie' => 'F001', 'correlativo' => '2'] + $extra, JSON_THROW_ON_ERROR));
         $doc->setStatus($status);
 
         return $doc;

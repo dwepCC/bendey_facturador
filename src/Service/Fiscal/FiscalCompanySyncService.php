@@ -9,6 +9,7 @@ use App\Repository\EmpresaRepository;
 use App\Service\EmpresasService;
 use App\Service\Fiscal\Observability\FiscalAuditService;
 use App\Service\Fiscal\Provider\PseProviderRegistry;
+use App\Service\Fiscal\Verification\FiscalSunatVerifier;
 use App\Service\Gre\GreOAuthCredentialResolver;
 use App\Service\ConfigProviderInterface;
 use App\Entity\FiscalAuditLog;
@@ -208,14 +209,6 @@ class FiscalCompanySyncService
                 $entry['pse_metadata_json'] = is_string($meta) ? $meta : json_encode($meta, JSON_UNESCAPED_UNICODE);
             }
         } else {
-            $solUser = trim((string) ($sunat['sol_user'] ?? $sunat['SOL_USER'] ?? $payload['SOL_USER'] ?? ''));
-            if ($solUser !== '') {
-                $entry['SOL_USER'] = $solUser;
-            }
-            $solPass = trim((string) ($sunat['sol_password'] ?? $sunat['sol_pass'] ?? $sunat['SOL_PASS'] ?? $payload['SOL_PASS'] ?? ''));
-            if ($solPass !== '') {
-                $entry['SOL_PASS'] = $solPass;
-            }
             $certB64 = trim((string) ($sunat['certificate_base64'] ?? $payload['certificate_base64'] ?? ''));
             if ($certB64 !== '') {
                 $entry['certificate_base64'] = $certB64;
@@ -227,18 +220,40 @@ class FiscalCompanySyncService
             if (!empty($payload['logo_base64'])) {
                 $entry['logo_base64'] = (string) $payload['logo_base64'];
             }
-            $gre = is_array($payload['gre'] ?? null) ? $payload['gre'] : $payload;
-            $greId = trim((string) ($gre['client_id'] ?? $gre['gre_client_id'] ?? $payload['gre_client_id'] ?? $payload['CLIENT_ID'] ?? ''));
-            if ($greId !== '') {
-                $entry['gre_client_id'] = $greId;
-                $entry['CLIENT_ID'] = $greId;
-            }
-            $greSecret = trim((string) ($gre['client_secret'] ?? $gre['gre_client_secret'] ?? $payload['gre_client_secret'] ?? $payload['CLIENT_SECRET'] ?? ''));
-            if ($greSecret !== '') {
-                $entry['gre_client_secret'] = $greSecret;
-                $entry['CLIENT_SECRET'] = $greSecret;
-                $entry['gre_oauth_configured_at'] = (new \DateTimeImmutable())->format(DATE_ATOM);
-            }
+        }
+
+        // Usuario SOL, GRE y API de validez valen para CUALQUIER modo de emisión. En PSE el envío
+        // lo hace ValidaPSE con su token, pero el usuario secundario SOL del tenant sirve para
+        // «Verificar en SUNAT» (billConsultService) y las credenciales GRE para las guías. Antes en
+        // PSE se ignoraban y la empresa quedaba con la clave SOL de relleno «PSE».
+        $solUser = trim((string) ($sunat['sol_user'] ?? $sunat['SOL_USER'] ?? $payload['SOL_USER'] ?? ''));
+        if ($solUser !== '') {
+            $entry['SOL_USER'] = $solUser;
+        }
+        $solPass = trim((string) ($sunat['sol_password'] ?? $sunat['sol_pass'] ?? $sunat['SOL_PASS'] ?? $payload['SOL_PASS'] ?? ''));
+        if ($solPass !== '') {
+            $entry['SOL_PASS'] = $solPass;
+        }
+        $gre = is_array($payload['gre'] ?? null) ? $payload['gre'] : $payload;
+        $greId = trim((string) ($gre['client_id'] ?? $gre['gre_client_id'] ?? $payload['gre_client_id'] ?? $payload['CLIENT_ID'] ?? ''));
+        if ($greId !== '') {
+            $entry['gre_client_id'] = $greId;
+            $entry['CLIENT_ID'] = $greId;
+        }
+        $greSecret = trim((string) ($gre['client_secret'] ?? $gre['gre_client_secret'] ?? $payload['gre_client_secret'] ?? $payload['CLIENT_SECRET'] ?? ''));
+        if ($greSecret !== '') {
+            $entry['gre_client_secret'] = $greSecret;
+            $entry['CLIENT_SECRET'] = $greSecret;
+            $entry['gre_oauth_configured_at'] = (new \DateTimeImmutable())->format(DATE_ATOM);
+        }
+        $cpe = is_array($payload['cpe_api'] ?? null) ? $payload['cpe_api'] : $payload;
+        $cpeId = trim((string) ($cpe['client_id'] ?? $cpe['cpe_api_client_id'] ?? $payload['cpe_api_client_id'] ?? ''));
+        if ($cpeId !== '') {
+            $entry['cpe_api_client_id'] = $cpeId;
+        }
+        $cpeSecret = trim((string) ($cpe['client_secret'] ?? $cpe['cpe_api_client_secret'] ?? $payload['cpe_api_client_secret'] ?? ''));
+        if ($cpeSecret !== '') {
+            $entry['cpe_api_client_secret'] = $cpeSecret;
         }
 
         foreach (['automatic_send', 'email_enabled', 'retry_enabled', 'enabled'] as $flag) {
@@ -274,7 +289,12 @@ class FiscalCompanySyncService
                 ? $entity->getLastConnectionCheck()->format(DATE_ATOM) : null,
             'pse_base_url_configured' => $entity->resolvePseBaseUrl() !== '',
             'pse_token_configured' => $entity->resolvePseToken() !== '',
-            'sol_configured' => trim($entity->getSolUser()) !== '' && trim($entity->getSolPass()) !== '',
+            // El relleno «PSE»/«PSE» de las empresas PSE no es un usuario SOL.
+            'sol_configured' => FiscalSunatVerifier::hasUsableSolCredentials($entity),
+            'sol_user' => FiscalSunatVerifier::hasUsableSolCredentials($entity) ? trim($entity->getSolUser()) : null,
+            'cpe_api_configured' => $entity->isCpeApiConfigured(),
+            'cpe_api_configured_at' => $entity->getCpeApiConfiguredAt()
+                ? $entity->getCpeApiConfiguredAt()->format(DATE_ATOM) : null,
             'certificate_configured' => $entity->getCertificate() !== null && trim((string) $entity->getCertificate()) !== '',
             'gre_oauth_configured' => $greConfigured,
             'gre_oauth_configured_at' => $entity->getGreOauthConfiguredAt()

@@ -103,6 +103,16 @@ class Empresa
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $greOauthConfiguredAt = null;
 
+    /** API REST «Consulta Integrada de Comprobante de Pago» de SUNAT (validez), credencial del propio tenant. */
+    #[ORM\Column(type: 'string', length: 120, nullable: true)]
+    private ?string $cpeApiClientId = null;
+
+    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    private ?string $cpeApiClientSecret = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $cpeApiConfiguredAt = null;
+
     public function getRuc(): string
     {
         return $this->ruc;
@@ -250,6 +260,18 @@ class Empresa
     public function getGreOauthConfiguredAt(): ?\DateTimeImmutable
     {
         return $this->greOauthConfiguredAt;
+    }
+
+    public function getCpeApiClientId(): ?string { return $this->cpeApiClientId; }
+    public function setCpeApiClientId(?string $v): self { $this->cpeApiClientId = $v !== null && trim($v) !== '' ? trim($v) : null; return $this; }
+    public function getCpeApiClientSecret(): ?string { return $this->cpeApiClientSecret; }
+    public function setCpeApiClientSecret(?string $v): self { $this->cpeApiClientSecret = $v !== null && $v !== '' ? $v : null; return $this; }
+    public function getCpeApiConfiguredAt(): ?\DateTimeImmutable { return $this->cpeApiConfiguredAt; }
+    public function setCpeApiConfiguredAt(?\DateTimeImmutable $v): self { $this->cpeApiConfiguredAt = $v; return $this; }
+
+    public function isCpeApiConfigured(): bool
+    {
+        return trim((string) ($this->cpeApiClientId ?? '')) !== '' && (string) ($this->cpeApiClientSecret ?? '') !== '';
     }
 
     public function setGreOauthConfiguredAt(?\DateTimeImmutable $v): self

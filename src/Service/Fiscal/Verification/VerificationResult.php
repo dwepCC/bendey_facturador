@@ -25,6 +25,8 @@ final class VerificationResult
     public const SOURCE_SUNAT_CDR = 'sunat_cdr';
     public const SOURCE_SUNAT_STATUS = 'sunat_status';
     public const SOURCE_VALIDAPSE = 'validapse_consultar';
+    /** API REST de validez (Consulta Integrada): confirma existencia y validez, sin CDR. */
+    public const SOURCE_SUNAT_VALIDEZ = 'sunat_validez_api';
 
     public string $outcome = self::UNAVAILABLE;
     public ?string $source = null;

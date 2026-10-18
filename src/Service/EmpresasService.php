@@ -71,6 +71,10 @@ class EmpresasService
         'CLIENT_SECRET',
         'gre_oauth_configured_at',
         'greOauthConfiguredAt',
+        'cpe_api_client_id',
+        'cpeApiClientId',
+        'cpe_api_client_secret',
+        'cpeApiClientSecret',
     ];
 
     private const AMBIENTES_VALIDOS = ['pruebas', 'produccion'];
@@ -122,6 +126,9 @@ class EmpresasService
             }
             if (isset($row['CLIENT_SECRET'])) {
                 $row['CLIENT_SECRET'] = '***';
+            }
+            if (isset($row['cpe_api_client_secret'])) {
+                $row['cpe_api_client_secret'] = '***';
             }
             $all[$ruc] = $row;
         }
@@ -392,6 +399,15 @@ class EmpresasService
         if (is_string($greClientSecret) && $greClientSecret !== '') {
             $entity->setGreClientSecret($greClientSecret);
             $entity->setGreOauthConfiguredAt(new \DateTimeImmutable());
+        }
+        $cpeId = $entry['cpe_api_client_id'] ?? $entry['cpeApiClientId'] ?? null;
+        if (is_string($cpeId) && trim($cpeId) !== '') {
+            $entity->setCpeApiClientId(trim($cpeId));
+        }
+        $cpeSecret = $entry['cpe_api_client_secret'] ?? $entry['cpeApiClientSecret'] ?? null;
+        if (is_string($cpeSecret) && $cpeSecret !== '') {
+            $entity->setCpeApiClientSecret($cpeSecret);
+            $entity->setCpeApiConfiguredAt(new \DateTimeImmutable());
         }
         if (array_key_exists('gre_oauth_configured_at', $entry) || array_key_exists('greOauthConfiguredAt', $entry)) {
             $ts = $entry['gre_oauth_configured_at'] ?? $entry['greOauthConfiguredAt'] ?? null;
