@@ -132,8 +132,23 @@ class ValidaPseProvider extends AbstractFiscalProvider
         curl_close($ch);
 
         $bodyStr = $body === false ? '' : (string) $body;
+
+        return $this->resultFromHttpResponse($httpCode, $bodyStr, $unsignedXml, $filenameBase);
+    }
+
+    /**
+     * Traduce la respuesta HTTP del PSE a un resultado de emisión. Separado de emit() para
+     * poder probar la clasificación con respuestas reales sin red.
+     */
+    public function resultFromHttpResponse(int $httpCode, string $bodyStr, string $unsignedXml, string $filenameBase): FiscalEmitResult
+    {
+        $decoded = json_decode($bodyStr, true);
         /** @var array<string, mixed> $pseResp */
-        $pseResp = json_decode($bodyStr, true) ?: [];
+        $pseResp = is_array($decoded) ? $decoded : [];
+
+        if (FiscalTransientErrorClassifier::isTransientPseResponse($httpCode, $pseResp, $bodyStr)) {
+            return $this->buildTransientResult($unsignedXml, $pseResp, $httpCode, $bodyStr);
+        }
 
         if ($httpCode < 200 || $httpCode >= 300) {
             if ($pseResp !== []) {
@@ -151,6 +166,31 @@ class ValidaPseProvider extends AbstractFiscalProvider
         $isSuccess = (bool) ($pseResp['isSuccess'] ?? false);
 
         return $this->buildEmitResult($unsignedXml, $pseResp, $isSuccess, $filenameBase);
+    }
+
+    /**
+     * El PSE o SUNAT no pudo atender: sin veredicto sobre el comprobante.
+     *
+     * @param array<string, mixed> $pseResp
+     */
+    private function buildTransientResult(string $unsignedXml, array $pseResp, int $httpCode, string $bodyStr): FiscalEmitResult
+    {
+        $out = new FiscalEmitResult();
+        $out->unsignedXml = $unsignedXml;
+        $out->pseResponse = $pseResp !== []
+            ? $pseResp
+            : ['http_status' => $httpCode, 'body' => mb_substr($bodyStr, 0, 500)];
+        $out->pseMessage = PseResponseFormatter::message($pseResp);
+        $out->sunatCode = FiscalTransientErrorClassifier::pseCode($pseResp);
+        $detail = $out->pseMessage !== '' ? $out->pseMessage : ($httpCode > 0 ? 'HTTP ' . $httpCode : 'sin respuesta');
+        $out->sunatMessage = 'PSE/SUNAT no disponible'
+            . ($out->sunatCode !== null ? ' (' . $out->sunatCode . ')' : '')
+            . ': ' . $detail;
+        $out->success = false;
+        $out->rejected = false;
+        $out->transient = true;
+
+        return $out;
     }
 
     /**

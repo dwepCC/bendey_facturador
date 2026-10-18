@@ -14,7 +14,7 @@ final class PseResponseFormatter
      */
     public static function message(array $resp): string
     {
-        foreach (['mensaje', 'message', 'errors', 'error'] as $key) {
+        foreach (['mensaje', 'message', 'errores', 'errors', 'error'] as $key) {
             if (!empty($resp[$key]) && is_string($resp[$key])) {
                 return trim($resp[$key]);
             }

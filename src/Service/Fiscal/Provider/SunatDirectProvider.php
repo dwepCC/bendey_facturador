@@ -115,6 +115,15 @@ class SunatDirectProvider extends AbstractFiscalProvider
         $code = $error !== null ? trim((string) $error->getCode()) : '';
         $message = $error !== null ? trim((string) $error->getMessage()) : '';
 
+        // 0109 "El servicio de autenticación no está disponible" es SUNAT caído, no una clave
+        // equivocada: antes caía en isCredentialError (por el código y por "autenticac").
+        if (FiscalTransientErrorClassifier::isTransientSunatError($code, $message)) {
+            return FiscalConnectionResult::fail(
+                'error',
+                'SUNAT no está disponible en este momento' . ($message !== '' ? ': ' . $message : '') . '. Intente más tarde.'
+            );
+        }
+
         if (self::isCredentialError($code, $message)) {
             return FiscalConnectionResult::fail(
                 'invalid_credentials',
@@ -134,7 +143,7 @@ class SunatDirectProvider extends AbstractFiscalProvider
      */
     private static function isCredentialError(string $code, string $message): bool
     {
-        if (in_array($code, ['0102', '0103', '0105', '0109', '0110', '0111'], true)) {
+        if (in_array($code, ['0102', '0103', '0105', '0110', '0111'], true)) {
             return true;
         }
         $normalized = mb_strtolower($message);
@@ -186,6 +195,11 @@ class SunatDirectProvider extends AbstractFiscalProvider
             $out->success = false;
             $out->rejected = false;
             $out->observed = false;
+            // Sin CDR y con un fault de servicio (0109, 0130…, error HTTP): SUNAT no evaluó el
+            // comprobante. Se reintenta con el mismo número en vez de quedar como error con código
+            // (que backend_go lee como rechazo).
+            $out->transient = ($out->cdrZip === null || $out->cdrZip === '')
+                && FiscalTransientErrorClassifier::isTransientSunatError($out->sunatCode, $out->sunatMessage);
             if ($out->cdrZip !== null && $out->cdrZip !== '') {
                 $out->sunatMessage = ($out->sunatMessage ?? '') !== ''
                     ? $out->sunatMessage

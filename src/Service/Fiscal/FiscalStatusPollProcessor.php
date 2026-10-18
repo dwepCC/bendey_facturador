@@ -7,6 +7,7 @@ namespace App\Service\Fiscal;
 use App\Entity\FiscalDocument;
 use App\Repository\EmpresaRepository;
 use App\Repository\FiscalDocumentRepository;
+use App\Service\Fiscal\Provider\FiscalTransientErrorClassifier;
 use App\Service\SeeApiFactory;
 use App\Service\SeeFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -113,7 +114,20 @@ class FiscalStatusPollProcessor
             }
 
             if (!method_exists($result, 'isSuccess') || !$result->isSuccess()) {
-                if ($statusCode === '99' || $result->getError() !== null) {
+                $err = $result->getError();
+                // 0109, 0130…, error HTTP: SUNAT no pudo responder la consulta — no es un rechazo
+                // del resumen/baja/GRE. Se vuelve a consultar más tarde.
+                if ($err !== null && FiscalTransientErrorClassifier::isTransientSunatError((string) $err->getCode(), (string) $err->getMessage())) {
+                    $this->logger->warning('fiscal_status_poll_transient', [
+                        'uuid' => $doc->getDocumentUuid(),
+                        'attempt' => $attempt,
+                        'code' => $err->getCode(),
+                        'message' => $err->getMessage(),
+                    ]);
+                    $this->scheduleRetry($doc, $attempt);
+                    return;
+                }
+                if ($statusCode === '99' || $err !== null) {
                     $this->applyPollRejection($doc, $result, $statusCode);
                     return;
                 }

@@ -136,6 +136,11 @@ class FiscalEmitProcessor
 
             $result = $this->providerResolver->emit($doc, $empresa, $documentClass, $greenterDoc);
 
+            if ($result->transient) {
+                $this->handleTransientResult($doc, $result, $empresa, $providerName, $attemptNum, $started);
+                return;
+            }
+
             if ($this->handleTicketOnlyResult($doc, $documentClass, $result, $providerName, $attemptNum, $started, $empresa)) {
                 return;
             }
@@ -254,6 +259,9 @@ class FiscalEmitProcessor
                 'error' => $e->getMessage(),
             ]);
             $doc->setStatus(FiscalDocument::STATUS_ERROR);
+            // El envío falló sin veredicto de SUNAT: un código viejo (de un rechazo anterior del
+            // mismo documento) haría que backend_go leyera este `error` como rechazo.
+            $doc->setSunatCode(null);
             $doc->setSunatMessage($e->getMessage());
             $doc->setRetryCount($doc->getRetryCount() + 1);
             $durationMs = (int) round((microtime(true) - $started) * 1000);
@@ -278,25 +286,7 @@ class FiscalEmitProcessor
                 $empresa = $this->empresaRepo->find($ruc);
             }
             $nonRetryable = $this->isNonRetryableEmitError($e->getMessage());
-            if ($empresa !== null && $empresa->isRetryEnabled() && !$nonRetryable && $doc->getRetryCount() < 5) {
-                $delay = min(3600, 30 * (2 ** ($doc->getRetryCount() - 1)));
-                $doc->setStatus(FiscalDocument::STATUS_RETRYING);
-                $doc->setNextRetryAt((new \DateTimeImmutable())->modify('+' . $delay . ' seconds'));
-                $this->em->flush();
-                $this->auditSafe(function () use ($doc, $attemptNum, $delay): void {
-                    if ($this->audit === null) {
-                        return;
-                    }
-                    $this->audit->fromDocument($doc, 'fiscal_retry_scheduled', FiscalAuditLog::STATUS_RETRYING, [
-                        'attempt' => $attemptNum,
-                        'metadata_json' => json_encode(['delay_seconds' => $delay]),
-                    ]);
-                });
-                $retryQueue = ($doc->getSendMode() === 'pse')
-                    ? FiscalQueueService::QUEUE_PSE_RETRY
-                    : FiscalQueueService::QUEUE_RETRY;
-                $this->queue->scheduleRetry($doc->getDocumentUuid(), $delay, $retryQueue);
-            } else {
+            if (!$this->scheduleRetryIfAllowed($doc, $empresa, $attemptNum, $nonRetryable ? 0 : self::MAX_EMIT_ATTEMPTS)) {
                 $this->notifyOrEnqueueSync($doc);
             }
             if ($doc->getFiscalFingerprint()) {
@@ -308,6 +298,112 @@ class FiscalEmitProcessor
         if ($doc->getFiscalFingerprint()) {
             $this->queue->releaseClaim($doc->getFiscalFingerprint());
         }
+    }
+
+    /** Intentos de emisión ante errores genéricos (excepciones). */
+    private const MAX_EMIT_ATTEMPTS = 5;
+
+    /**
+     * Intentos ante indisponibilidad de SUNAT/PSE. Con el backoff (30 s, 1, 2, 4, 8, 16, 32 min)
+     * cubren ~1 h: las caídas de autenticación de SUNAT (0109) suelen durar minutos, pero a
+     * veces más de los ~15 min que alcanzan 5 intentos.
+     */
+    private const MAX_TRANSIENT_ATTEMPTS = 8;
+
+    /**
+     * SUNAT/PSE no pudo atender (0109, 5xx, "Server Error", HTTP sin evaluar, timeout). No es un
+     * rechazo: el comprobante sigue sin veredicto y se reintenta con el MISMO número. Si se agotan
+     * los intentos queda `error` sin código SUNAT, que backend_go permite reenviar (ResendToSUNAT).
+     */
+    private function handleTransientResult(
+        FiscalDocument $doc,
+        FiscalEmitResult $result,
+        Empresa $empresa,
+        string $providerName,
+        int $attemptNum,
+        float $started
+    ): void {
+        $this->logger->warning('fiscal_emit_transient', [
+            'uuid' => $doc->getDocumentUuid(),
+            'attempt' => $attemptNum,
+            'code' => $result->sunatCode,
+            'message' => $result->sunatMessage,
+        ]);
+
+        $doc->setStatus(FiscalDocument::STATUS_ERROR);
+        // Sin código en el documento: backend_go lee `error` + código distinto de 0 como rechazo.
+        // El código queda en el intento (fiscal_emit_attempts) y en pse_response_json.
+        $doc->setSunatCode(null);
+        $doc->setSunatMessage($result->sunatMessage);
+        $doc->setRejectedAt(null);
+        if (!empty($result->pseResponse)) {
+            $doc->setPseResponseJson(json_encode($result->pseResponse, JSON_UNESCAPED_UNICODE) ?: null);
+        }
+        $doc->setRetryCount($doc->getRetryCount() + 1);
+        $this->recordAttempt($doc, $attemptNum, $providerName, FiscalDocument::STATUS_ERROR, $result, $result->sunatMessage, $started);
+        $this->em->flush();
+
+        $durationMs = (int) round((microtime(true) - $started) * 1000);
+        $this->auditSafe(function () use ($doc, $attemptNum, $durationMs, $result, $providerName): void {
+            if ($this->audit === null) {
+                return;
+            }
+            $this->audit->fromDocument($doc, 'fiscal_emit_failed', FiscalAuditLog::STATUS_FAILED, [
+                'attempt' => $attemptNum,
+                'duration_ms' => $durationMs,
+                'provider' => $providerName,
+                'error_code' => $result->sunatCode,
+                'error_message' => $result->sunatMessage,
+                'metadata_json' => json_encode([
+                    'transient' => true,
+                    'pse_response' => PseResponseFormatter::summarize($result->pseResponse),
+                ], JSON_UNESCAPED_UNICODE) ?: null,
+            ]);
+        });
+
+        if (!$this->scheduleRetryIfAllowed($doc, $empresa, $attemptNum, self::MAX_TRANSIENT_ATTEMPTS)) {
+            $this->notifyOrEnqueueSync($doc);
+        }
+        if ($doc->getFiscalFingerprint()) {
+            $this->queue->releaseClaim($doc->getFiscalFingerprint());
+        }
+    }
+
+    /**
+     * Programa el siguiente intento con backoff exponencial si la empresa lo permite y quedan
+     * intentos. Devuelve false si no se programó (el documento queda en `error`).
+     */
+    private function scheduleRetryIfAllowed(FiscalDocument $doc, ?Empresa $empresa, int $attemptNum, int $maxAttempts): bool
+    {
+        if ($empresa === null || !$empresa->isRetryEnabled() || $doc->getRetryCount() >= $maxAttempts) {
+            return false;
+        }
+
+        $delay = self::retryDelaySeconds($doc->getRetryCount());
+        $doc->setStatus(FiscalDocument::STATUS_RETRYING);
+        $doc->setNextRetryAt((new \DateTimeImmutable())->modify('+' . $delay . ' seconds'));
+        $this->em->flush();
+        $this->auditSafe(function () use ($doc, $attemptNum, $delay): void {
+            if ($this->audit === null) {
+                return;
+            }
+            $this->audit->fromDocument($doc, 'fiscal_retry_scheduled', FiscalAuditLog::STATUS_RETRYING, [
+                'attempt' => $attemptNum,
+                'metadata_json' => json_encode(['delay_seconds' => $delay]),
+            ]);
+        });
+        $retryQueue = ($doc->getSendMode() === 'pse')
+            ? FiscalQueueService::QUEUE_PSE_RETRY
+            : FiscalQueueService::QUEUE_RETRY;
+        $this->queue->scheduleRetry($doc->getDocumentUuid(), $delay, $retryQueue);
+
+        return true;
+    }
+
+    /** 30 s, 60 s, 2 min, 4 min… tope 1 h. $retryCount ya incluye el intento que falló. */
+    public static function retryDelaySeconds(int $retryCount): int
+    {
+        return min(3600, 30 * (2 ** max(0, $retryCount - 1)));
     }
 
     private function handleTicketOnlyResult(

@@ -32,6 +32,12 @@ class FiscalEmitResult
     /** Documento válido ante SUNAT pero con observaciones (código >= 4000 o notas CDR). */
     public bool $observed = false;
 
+    /**
+     * SUNAT/PSE no pudo atender (servicio caído, 5xx, timeout): NO es un veredicto sobre el
+     * comprobante. Se reintenta con el mismo número; nunca termina en `rejected`.
+     */
+    public bool $transient = false;
+
     /** Documento enviado con ticket; requiere poll antes de dar por aceptado. */
     public bool $pendingTicketPoll = false;
 
