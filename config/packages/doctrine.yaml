@@ -1,6 +1,9 @@
 doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
+        types:
+            # Credenciales de empresa cifradas en reposo (clave SOL, secretos GRE y API de validez).
+            encrypted_string: App\Doctrine\Type\EncryptedStringType
         profiling_collect_backtrace: '%kernel.debug%'
     orm:
         auto_generate_proxy_classes: true

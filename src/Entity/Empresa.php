@@ -22,7 +22,8 @@ class Empresa
     #[ORM\Column(type: 'string', length: 100)]
     private string $solUser;
 
-    #[ORM\Column(type: 'string', length: 255)]
+    /** Cifrada en reposo (FISCAL_SECRETS_KEY). */
+    #[ORM\Column(type: 'encrypted_string', length: 255)]
     private string $solPass;
 
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
@@ -97,7 +98,8 @@ class Empresa
     #[ORM\Column(type: 'string', length: 120, nullable: true)]
     private ?string $greClientId = null;
 
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    /** Cifrado en reposo. Credencial OAuth de GRE (guías), distinta de la API de validez. */
+    #[ORM\Column(type: 'encrypted_string', length: 255, nullable: true)]
     private ?string $greClientSecret = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
@@ -107,7 +109,8 @@ class Empresa
     #[ORM\Column(type: 'string', length: 120, nullable: true)]
     private ?string $cpeApiClientId = null;
 
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    /** Cifrado en reposo. Credencial OAuth de la API de validez, distinta de la de GRE. */
+    #[ORM\Column(type: 'encrypted_string', length: 255, nullable: true)]
     private ?string $cpeApiClientSecret = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]

@@ -66,12 +66,17 @@ class FiscalSunatVerifier
             return VerificationResult::unavailable('SUNAT solo permite consultar comprobantes de producción; esta empresa está en pruebas.');
         }
 
-        // Orden, para CUALQUIER modo de emisión (también PSE):
-        //  1. Usuario SOL secundario → billConsultService (estado + CDR). La vía buena.
-        //  2. API de validez de SUNAT, si está configurada → existe/válido, sin CDR (respaldo).
-        //  3. Solo PSE: ValidaPSE /api/cpe/consultar (hoy falla siempre, 2026-10-18; queda por si lo arreglan).
+        // Orden (decisión del dueño, 2026-10-18):
+        //  - PSE: 1) ValidaPSE /api/cpe/consultar; si falla o no responde, consulta directa a SUNAT:
+        //    2) usuario SOL secundario del tenant → billConsultService (estado + CDR);
+        //    3) API de validez del tenant, si está configurada → existe/válido, sin CDR.
+        //  - SUNAT directo: 2) y luego 3).
+        // Las credenciales GRE (guías) son otras y no se usan para consultar.
         $tried = [];
         $steps = [];
+        if (strtolower(trim($empresa->getSendMode())) === 'pse') {
+            $steps[] = fn (): VerificationResult => $this->verifyWithValidaPse($doc, $empresa, $ruc);
+        }
         if (self::hasUsableSolCredentials($empresa)) {
             $steps[] = fn (): VerificationResult => $this->verifyWithSunat($doc, $empresa, $ruc);
         } else {
@@ -79,9 +84,6 @@ class FiscalSunatVerifier
         }
         if ($this->validez !== null && $empresa->isCpeApiConfigured()) {
             $steps[] = fn (): VerificationResult => $this->verifyWithValidezApi($doc, $empresa, $ruc);
-        }
-        if (strtolower(trim($empresa->getSendMode())) === 'pse') {
-            $steps[] = fn (): VerificationResult => $this->verifyWithValidaPse($doc, $empresa, $ruc);
         }
 
         $last = null;

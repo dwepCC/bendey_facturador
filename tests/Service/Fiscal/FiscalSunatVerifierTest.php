@@ -161,19 +161,34 @@ class FiscalSunatVerifierTest extends TestCase
         $this->assertFalse($v->isApplicable());
     }
 
-    public function testEmpresaPseConUsuarioSolConsultaASunatNoAValidaPse(): void
+    public function testEmpresaPseSiValidaPseFallaCaeASunatConUsuarioSol(): void
     {
         $sunat = $this->createMock(SunatConsultClientInterface::class);
         $sunat->expects($this->once())->method('getStatusCdr')
             ->with(self::RUC . 'CONSULTA1', 'clave', self::RUC, '01', 'F001', 2)
             ->willReturn($this->cdrResult('0', 'La Boleta numero B003-895, ha sido aceptada'));
         $pse = $this->createMock(ValidaPseConsultClientInterface::class);
-        $pse->expects($this->never())->method('consultar');
+        $pse->expects($this->once())->method('consultar')
+            ->willReturn(['http' => 202, 'body' => '{"isSuccess":false,"estado":501,"code":"HTTP","errores":"Internal Server Error"}']);
 
         $v = $this->verifier($this->empresa(self::RUC . 'CONSULTA1', 'clave', 'pse'), $sunat, $pse)->verify($this->doc(FiscalDocument::STATUS_REJECTED));
 
         $this->assertSame(VerificationResult::ACCEPTED, $v->outcome);
         $this->assertSame(VerificationResult::SOURCE_SUNAT_CDR, $v->source);
+    }
+
+    public function testEnPseValidaPseVaPrimeroYSiRespondeNoSeConsultaSunat(): void
+    {
+        $cdrXml = '<?xml version="1.0" encoding="UTF-8"?><ar:ApplicationResponse xmlns:ar="urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"><cbc:ID>1</cbc:ID><cac:DocumentResponse><cac:Response><cbc:ReferenceID>F001-2</cbc:ReferenceID><cbc:ResponseCode>0</cbc:ResponseCode><cbc:Description>La Factura numero F001-2, ha sido aceptada</cbc:Description></cac:Response></cac:DocumentResponse></ar:ApplicationResponse>';
+        $pse = $this->createMock(ValidaPseConsultClientInterface::class);
+        $pse->method('consultar')->willReturn(['http' => 200, 'body' => (string) json_encode(['isSuccess' => true, 'code' => '0', 'cdr' => base64_encode($cdrXml)])]);
+        $sunat = $this->createMock(SunatConsultClientInterface::class);
+        $sunat->expects($this->never())->method('getStatusCdr');
+
+        $v = $this->verifier($this->empresa(self::RUC . 'CONSULTA1', 'clave', 'pse'), $sunat, $pse)->verify($this->doc(FiscalDocument::STATUS_REJECTED));
+
+        $this->assertSame(VerificationResult::ACCEPTED, $v->outcome);
+        $this->assertSame(VerificationResult::SOURCE_VALIDAPSE, $v->source);
     }
 
     public function testSinSolUsaLaApiDeValidezComoRespaldo(): void
@@ -189,7 +204,7 @@ class FiscalSunatVerifierTest extends TestCase
             ])
             ->willReturn(['http' => 200, 'body' => '{"success":true,"message":"Operation Success! ","data":{"estadoCp":"1","estadoRuc":"00","condDomiRuc":"00"}}']);
         $pse = $this->createMock(ValidaPseConsultClientInterface::class);
-        $pse->expects($this->never())->method('consultar');
+        $pse->method('consultar')->willReturn(['http' => 0, 'body' => '']);
 
         $v = $this->verifier($empresa, $this->createMock(SunatConsultClientInterface::class), $pse, null, null, $validez)
             ->verify($this->doc(FiscalDocument::STATUS_REJECTED, ['fechaEmision' => '2026-10-18T10:09:46-05:00', 'mtoImpVenta' => 75]));
